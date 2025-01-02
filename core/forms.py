@@ -21,3 +21,11 @@ class CustomSignUpForm(UserCreationForm):
         except SecretSignUpCode.DoesNotExist:
             raise forms.ValidationError("Passphrase is not correct.")
         return secret_code
+
+class EditProfilePhotoForm(forms.ModelForm):
+    class Meta:
+        model = CustomUser
+        fields = ['profile_photo']
+        widgets = {
+            'profile_photo': forms.FileInput(attrs={'class': 'form-control'}),
+        }

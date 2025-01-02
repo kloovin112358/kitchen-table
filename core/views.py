@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView
 from django.urls import reverse_lazy
@@ -46,7 +46,20 @@ class SignUpView(FormView):
 
 @login_required
 def MyAccount(request):
-    return render(request, "myaccount.html")
+    user = request.user
+
+    if request.method == "POST":
+        form = EditProfilePhotoForm(request.POST, request.FILES, instance=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Your profile photo has been updated!")
+            return redirect("my-account")
+        else:
+            messages.error(request, "There was an error updating your profile photo. Please try again.")
+    else:
+        form = EditProfilePhotoForm(instance=user)
+
+    return render(request, "myaccount.html", {"form": form})
 
 def PasswordReset(request):
     return render(request, "passwordreset.html")
