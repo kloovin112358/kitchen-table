@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Log In{% endblock %}
+{% block content %}
+<div class="container pb-5 mt-3">
+    <div class="card shadow-sm mx-auto mt-3 mt-lg-5" style="max-width:350px">
+        <div class="card-body p-4">
+          <h1 class="card-title h3 mb-3 fw-bold text-center">Log In to {{sitename}}</h1>
+          <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="{{ form.username.id_for_label }}" class="form-label">Email</label>
+              <input
+                type="text"
+                name="username"
+                placeholder="Enter email"
+                required
+                id="{{ form.username.id_for_label }}" 
+                value="{{ form.username.value|default:'' }}"
+                class="form-control
+                    {% if form.errors %}is-invalid{% endif %}
+                "
+              />
+            </div>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-top">
+                    <label for="{{ form.password.id_for_label }}" class="form-label">Password</label>
+                    <button class="btn btn-link text-decoration-none p-0 d-flex align-items-top" type="button" onClick="showHidePassword()">
+                        <div aria-hidden="true" aria-label="Show/hide password" id="showHideIcon">
+                            <i id="passwordIcon" class="bi bi-eye" aria-hidden="true"></i>
+                        </div>
+                    </button>                    
+                </div>
+              <input
+                type="password"
+                name="password"
+                class="form-control {% if form.errors %}is-invalid{% endif %}"
+                placeholder="Password"
+                id="{{ form.password.id_for_label }}" 
+                value="{{ form.password.value|default:'' }}"
+                required
+              />
+              <a href="{% url 'password-reset' %}" class="ps-0 btn btn-link">Forgot your password?</a>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 px-4 radius-50 text-white mt-1">Login</button>
+            <p class="mt-2">
+              <small>Don't have an account? <a href="{% url 'sign-up' %}">Sign up</a></small>
+            </p>
+            {% if form.errors %}
+                <p class="text-danger"><i class="bi bi-exclamation-circle"></i> Invalid username or password.</p>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+</div>
+<script>
+function showHidePassword() {
+    var passwordField = document.getElementById("{{ form.password.id_for_label }}");
+    var passwordIcon = document.getElementById("passwordIcon");
+
+    if (passwordField.type === "password") {
+        // Show the password
+        passwordField.type = "text";
+        passwordIcon.classList.remove("bi-eye");
+        passwordIcon.classList.add("bi-eye-slash");
+        passwordIcon.setAttribute("aria-label", "Hide password");
+    } else {
+        // Hide the password
+        passwordField.type = "password";
+        passwordIcon.classList.remove("bi-eye-slash");
+        passwordIcon.classList.add("bi-eye");
+        passwordIcon.setAttribute("aria-label", "Show password");
+    }
+}
+</script>
+{% endblock %}

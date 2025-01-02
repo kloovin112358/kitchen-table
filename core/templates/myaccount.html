@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}My Account{% endblock %}
+{% block content %}
+<div class="container pb-5 mt-3">
+    <h1 class="display-1 fw-bold">My Account</h1>
+    <form action="{% url 'sign-out' %}" method="post" id="logout-form" style="display: none;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-link">Logout</button>
+      </form>
+      <button onclick="document.getElementById('logout-form').submit(); return false;" class="btn btn-outline-dark"><i class="bi bi-door-closed"></i> Sign Out</button>
+</div>
+    
+{% endblock %}

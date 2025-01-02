@@ -1,0 +1,134 @@
+
+<!doctype html>
+<html lang="en" class="h-100">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Kitchen table is a platform for families to digitally share stuff." />
+    <meta name="viewport" content="width=device-width" />
+    <!-- <link rel="icon" type="image/svg+xml" href="/favicon.svg" /> -->
+    <title>{{ sitename }} | {% block title %}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
+    {% load static %}
+    <link 
+        rel="stylesheet"
+        href="{% static 'base.css' %}"
+    />
+  </head>
+  <body class="d-flex flex-column h-100">
+    <header>
+      <nav class="navbar navbar-expand-lg border-bottom fixed-top bg-body">
+        <div class="container">
+          <a class="navbar-brand fw-bold inter-tight" href="/">{{ sitename }}</a>
+          
+          <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+              {% if request.user.is_authenticated %}
+                <li class="nav-item">
+                  <a class="nav-link" href=""><i class="bi bi-image"></i> Gallery</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href=""><i class="bi bi-star"></i> Favorites</a>
+                </li>
+                <li class="d-lg-none nav-item">
+                  <a class="nav-link" href=""><i class="bi bi-plus-lg"></i> Create</a>
+                </li>
+                <li class="d-lg-none nav-item">
+                  <a class="nav-link" href="{% url 'my-account' %}"><i class="bi bi-person-circle"></i> My Account</a>
+                </li>
+                {% if request.user.is_staff %}
+                <li class="d-lg-none nav-item">
+                  <a class="nav-link" href=""><i class="bi bi-incognito"></i> Admin</a>
+                </li>
+                {% endif %}
+              {% else %}
+                <li class="d-lg-none nav-item">
+                  <a class="nav-link" href="">Log In</a>
+                </li>
+                <li class="d-lg-none nav-item">
+                  <a class="nav-link" href="">Sign Up</a>
+                </li>
+              {% endif %}
+            </ul>
+            {% if request.user.is_authenticated %}
+              <a class="btn btn-primary me-2 rounded-corners d-none d-lg-block" href="{% url 'admin:index' %}">
+                <i class="bi bi-plus-lg"></i> Create
+              </a>
+              {% if request.user.profile_photo %}
+              <a href="{% url 'my-account' %}" class="profile-photo text-decoration-none d-none d-lg-block">
+                <img src="{{ request.user.profile_photo.url }}" alt="{{request.user.get_full_name}} Profile Photo" class="rounded-circle"/>
+              </a>
+              {% else %}
+                <a class="btn btn-outline-dark d-none d-lg-block" href="{% url 'my-account' %}">
+                  <i class="bi bi-person-circle"></i>
+                  {{request.user.get_full_name}}
+                </a>
+              {% endif %}
+              {% if request.user.is_staff %}
+                <a class="btn btn-outline-dark ms-2 rounded-corners d-none d-lg-block" href="{% url 'admin:index' %}"><i class="bi bi-incognito"></i> Admin</a>
+              {% endif %}
+            {% else %}
+              <a class="btn btn-outline-primary me-1 rounded-corners d-none d-lg-block" href="{% url 'log-in' %}">
+                Log In
+              </a>
+              <a class="btn btn-primary rounded-corners d-none d-lg-block" href="{% url 'sign-up' %}">
+                Sign Up
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </nav>
+    </header>
+    <main class="flex-shrink-0" style="margin-top:56.8px">
+      {% block content %}
+      {% endblock %}
+    </main>
+    <footer class="border-top footer border-top mt-auto">
+      <div class="container">
+        <div class="pt-3 fs-6 pb-5">
+          <div class="d-flex justify-content-between flex-wrap">
+            <div class="me-3 mb-2 mb-sm-0">
+              <div>
+                <small class="fw-bold"
+                  >© 2025 Kitchen Table. All Rights Reserved.</small
+                >
+              </div>
+            </div>
+            <div class="d-flex">
+              <a class="nav-link" href="">
+                <i class="bi bi-github"></i>
+              </a>
+              <!-- <a class="nav-link ms-3" href="/contact">Contact Us</a> -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
