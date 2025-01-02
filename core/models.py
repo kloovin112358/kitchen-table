@@ -56,8 +56,7 @@ class CustomUser(AbstractUser):
         return self.get_full_name() + " (" + self.email + ")"
 
 class SecretSignUpCode(models.Model):
-    #TODO change this to a password passphrase
-    code = models.CharField(max_length=6)
+    code = models.CharField(max_length=300)
 
     def __str__(self):
         return self.code
@@ -69,6 +68,10 @@ class PostCategory(models.Model):
         return self.category
     
 class PostEntry(models.Model):
+    status = models.CharField(max_length=5, choices=[
+        ("Live", _("Live")),
+        ("Draft", _("Draft"))
+    ])
     category = models.ForeignKey(PostCategory, on_delete=models.RESTRICT)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     title = models.CharField(max_length=150)

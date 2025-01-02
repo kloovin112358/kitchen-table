@@ -11,20 +11,20 @@
             {% csrf_token %}
             <!-- Secret Code field -->
           <div class="mb-3">
-            <label for="{{ form.secret_code.id_for_label }}" class="form-label">Secret Code*</label>
+            <label for="{{ form.secret_code.id_for_label }}" class="form-label">Secret Passphrase*</label>
             <input
                 type="text"
                 name="secret_code"
-                placeholder="000000"
+                placeholder="Passphrase"
                 required
-                maxlength="6"
+                maxlength="300"
                 id="{{ form.secret_code.id_for_label }}" 
                 value="{{ form.secret_code.value|default:'' }}"
                 class="form-control
                     {% if form.secret_code.errors %}is-invalid{% endif %}
                 "
               />
-              <div class="form-text">Ask {{site_admin_individual_name}} for the 6-digit code.</div>
+              <div class="form-text">Ask {{site_admin_individual_name}} for the secret passphrase.</div>
             {% if form.secret_code.errors %}
               <div class="invalid-feedback">
                 {% for error in form.secret_code.errors %}
@@ -33,6 +33,51 @@
               </div>
             {% endif %}
           </div>
+
+          <div class="mb-3">
+            <label for="{{ form.first_name.id_for_label }}" class="form-label">First Name*</label>
+              <input
+                type="text"
+                name="first_name"
+                placeholder="First name"
+                required
+                id="{{ form.first_name.id_for_label }}" 
+                value="{{ form.first_name.value|default:'' }}"
+                class="form-control
+                    {% if form.first_name.errors %}is-invalid{% endif %}
+                "
+              />
+            {% if form.first_name.errors %}
+              <div class="invalid-feedback">
+                {% for error in form.first_name.errors %}
+                  <p>{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="mb-3">
+            <label for="{{ form.last_name.id_for_label }}" class="form-label">Last Name*</label>
+              <input
+                type="text"
+                name="last_name"
+                placeholder="Last name"
+                required
+                id="{{ form.last_name.id_for_label }}" 
+                value="{{ form.last_name.value|default:'' }}"
+                class="form-control
+                    {% if form.last_name.errors %}is-invalid{% endif %}
+                "
+              />
+            {% if form.last_name.errors %}
+              <div class="invalid-feedback">
+                {% for error in form.last_name.errors %}
+                  <p>{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
             <!-- Email field -->
           <div class="mb-3">
             <label for="{{ form.email.id_for_label }}" class="form-label">Email*</label>

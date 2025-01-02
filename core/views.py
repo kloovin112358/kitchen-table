@@ -5,10 +5,12 @@ from django.urls import reverse_lazy
 from .models import PostEntry
 from django.contrib.auth.views import LoginView
 from django.views.generic.edit import FormView
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from .forms import *
+from django.contrib import messages
+from django.utils.safestring import mark_safe
+from django.urls import reverse
 
 class HomeView(LoginRequiredMixin, ListView):
     model = PostEntry  # Replace with your model
@@ -34,6 +36,12 @@ class SignUpView(FormView):
     def form_valid(self, form):
         user = form.save()  # Save the new user
         login(self.request, user)  # Log the user in
+
+        message = mark_safe(
+            f"Welcome,  {user.first_name}! If you'd like, you can start by adding <a href='{reverse('my-account')}'>a profile photo</a>."
+        )
+        messages.success(self.request, message)
+
         return super().form_valid(form)
 
 @login_required

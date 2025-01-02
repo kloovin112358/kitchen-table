@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from core.models import PostCategory, SecretSignUpCode
 from django.contrib.auth import get_user_model
 import random
+from wonderwords import RandomWord
 
 User = get_user_model()
 
@@ -27,8 +28,15 @@ class Command(BaseCommand):
         # Create SecretSignUpCode if none exists
         if not SecretSignUpCode.objects.exists():
             signUpCode = SecretSignUpCode()
-            signUpCode.code = ''.join([str(random.randint(0, 9)) for _ in range(6)])  # Random 6-digit string
+            
+            # Initialize RandomWord
+            rw = RandomWord()
+            
+            # Generate a passphrase with 5 random words
+            passphrase = ' '.join(rw.word() for _ in range(5))
+            signUpCode.code = passphrase
+            
             signUpCode.save()
-            self.stdout.write("Secret Code created.")
+            self.stdout.write("Secret Passphrase created.")
         else:
             self.stdout.write("Secret Code exists in the database. Skipping.")
