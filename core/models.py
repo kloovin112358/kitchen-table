@@ -56,6 +56,7 @@ class CustomUser(AbstractUser):
         return self.get_full_name() + " (" + self.email + ")"
 
 class SecretSignUpCode(models.Model):
+    #TODO change this to a password passphrase
     code = models.CharField(max_length=6)
 
     def __str__(self):

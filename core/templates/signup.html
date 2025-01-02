@@ -1,10 +1,136 @@
 {% extends 'base.html' %}
 
+{% block title %}Sign Up{% endblock %}
+
 {% block content %}
-<h2>Register</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Register</button>
-</form>
+<div class="container pb-5 mt-3">
+    <div class="card shadow-sm mx-auto mt-3 mt-lg-5" style="max-width:460px">
+        <div class="card-body p-4">
+          <h1 class="card-title h3 mb-3 fw-bold text-center">Sign Up for {{sitename}}</h1>
+          <form method="post">
+            {% csrf_token %}
+            <!-- Secret Code field -->
+          <div class="mb-3">
+            <label for="{{ form.secret_code.id_for_label }}" class="form-label">Secret Code*</label>
+            <input
+                type="text"
+                name="secret_code"
+                placeholder="000000"
+                required
+                maxlength="6"
+                id="{{ form.secret_code.id_for_label }}" 
+                value="{{ form.secret_code.value|default:'' }}"
+                class="form-control
+                    {% if form.secret_code.errors %}is-invalid{% endif %}
+                "
+              />
+              <div class="form-text">Ask {{site_admin_individual_name}} for the 6-digit code.</div>
+            {% if form.secret_code.errors %}
+              <div class="invalid-feedback">
+                {% for error in form.secret_code.errors %}
+                  <p>{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+            <!-- Email field -->
+          <div class="mb-3">
+            <label for="{{ form.email.id_for_label }}" class="form-label">Email*</label>
+              <input
+                type="email"
+                name="email"
+                placeholder="Email"
+                required
+                id="{{ form.email.id_for_label }}" 
+                value="{{ form.email.value|default:'' }}"
+                class="form-control
+                    {% if form.email.errors %}is-invalid{% endif %}
+                "
+              />
+            {% if form.email.errors %}
+              <div class="invalid-feedback">
+                {% for error in form.email.errors %}
+                  <p>{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Password field -->
+          <div class="mb-3">
+            <label for="{{ form.password1.id_for_label }}" class="form-label">Password*</label>
+            <input
+                type="password"
+                name="password1"
+                class="form-control {% if form.password2.errors or form.password1.errors %}is-invalid{% endif %}"
+                placeholder="Password"
+                id="{{ form.password1.id_for_label }}" 
+                value="{{ form.password1.value|default:'' }}"
+                required
+              />
+            {% if form.password1.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.password1.errors %}
+                  <p>{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Password Confirmation field -->
+          <div class="mb-2">
+            <label for="{{ form.password2.id_for_label }}" class="form-label">Confirm Password*</label>
+            <input
+                type="password"
+                name="password2"
+                class="form-control {% if form.password2.errors or form.password1.errors %}is-invalid{% endif %}"
+                placeholder="Password"
+                id="{{ form.password2.id_for_label }}" 
+                value="{{ form.password2.value|default:'' }}"
+                required
+              />
+            {% if form.password2.errors %}
+              <div class="invalid-feedback">
+                {% for error in form.password2.errors %}
+                  <p class="mb-1">{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          <ul className="list-unstyled">
+            <li><small>Password must be at least 8 characters long.</small></li>
+            <li><small>Password must not be entirely numeric.</small></li>
+            <li><small>Password must not be too common.</small></li>
+          </ul>
+
+          
+            <button type="submit" class="btn btn-primary w-100 px-4 radius-50 text-white mt-1">Sign Up</button>
+            <p class="mt-2">
+              <small>Already have an account? <a href="{% url 'log-in' %}">Log in</a></small>
+            </p>
+            
+          </form>
+        </div>
+    </div>
+</div>
+<script>
+function showHidePassword() {
+    var passwordField = document.getElementById("{{ form.password.id_for_label }}");
+    var passwordIcon = document.getElementById("passwordIcon");
+
+    if (passwordField.type === "password") {
+        // Show the password
+        passwordField.type = "text";
+        passwordIcon.classList.remove("bi-eye");
+        passwordIcon.classList.add("bi-eye-slash");
+        passwordIcon.setAttribute("aria-label", "Hide password");
+    } else {
+        // Hide the password
+        passwordField.type = "password";
+        passwordIcon.classList.remove("bi-eye-slash");
+        passwordIcon.classList.add("bi-eye");
+        passwordIcon.setAttribute("aria-label", "Show password");
+    }
+}
+</script>
 {% endblock %}

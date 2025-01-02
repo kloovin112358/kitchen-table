@@ -7,6 +7,8 @@ from django.contrib.auth.views import LoginView
 from django.views.generic.edit import FormView
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
+from .forms import *
 
 class HomeView(LoginRequiredMixin, ListView):
     model = PostEntry  # Replace with your model
@@ -26,7 +28,7 @@ class LoginView(LoginView):
 
 class SignUpView(FormView):
     template_name = 'signup.html'  # Path to your register template
-    # form_class = UserCreationForm
+    form_class = CustomSignUpForm
     success_url = reverse_lazy('home')  # Redirect after successful registration
 
     def form_valid(self, form):
@@ -34,6 +36,7 @@ class SignUpView(FormView):
         login(self.request, user)  # Log the user in
         return super().form_valid(form)
 
+@login_required
 def MyAccount(request):
     return render(request, "myaccount.html")
 

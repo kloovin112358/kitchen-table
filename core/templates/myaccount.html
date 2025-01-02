@@ -3,7 +3,7 @@
 {% block title %}My Account{% endblock %}
 {% block content %}
 <div class="container pb-5 mt-3">
-    <h1 class="display-1 fw-bold">My Account</h1>
+    <h1 class="display-4 fw-bold">My Account</h1>
     <form action="{% url 'sign-out' %}" method="post" id="logout-form" style="display: none;">
         {% csrf_token %}
         <button type="submit" class="btn btn-link">Logout</button>
