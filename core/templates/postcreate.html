@@ -7,32 +7,152 @@
     <h1 class="display-5 fw-bold">{% if form.instance.pk %}Edit Draft{% else %}Create a Post{% endif %}</h1>
     <p class="mb-4">Share an update or a how-to for the family wiki.</p>
     <form method="post" id="postForm">
+        {{ form.preset_post_id }}
+
         {% csrf_token %}
+        <!-- {{form.errors}} -->
         <div class="mb-3">
             <label for="id_category" class="form-label">Category</label>
-            {{ form.category }}
+            {{form.category}}
+            <!-- {{form.category.value}}
+            <select name="{{ form.category.name }}" id="id_category" class="form-select {% if form.category.errors %}is-invalid{% endif %}">
+                {% for value, label in form.category.field.choices %}
+                    <option value="{{ value }}" {% if value == form.category.value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select> -->
+            {% if form.category.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.category.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
 
         <div class="mb-3">
-            <label for="id_title" class="form-label">Title</label>
-            {{ form.title }}
+            <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
+            {{form.title}}
+            <!-- <input
+                type="text"
+                name="title"
+                placeholder="Ex: September family farm update"
+                maxlength="150"
+                id="{{ form.title.id_for_label }}" 
+                value="{{ form.title.value|default:'' }}"
+                class="form-control
+                    {% if form.title.errors %}is-invalid{% endif %}
+                "
+              /> -->
+            {% if form.title.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.title.errors %}
+                <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
 
         <div class="mb-3">
             <label for="id_post_body" class="form-label">Content</label>
             {{ form.post_body }}
+            {% if form.post_body.errors %}
+            <div class="invalid-feedback" style="display:block!important;">
+                {% for error in form.post_body.errors %}
+                <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
 
         <div class="mb-3">
-            <label for="id_tags" class="form-label">Tags</label>
-            {{ form.tags }}
-            <div class="form-text">Tags help people find this post.</div>
+            
+            <label for="{{ form.tags.id_for_label }}" class="form-label">Tags</label>
+            {{form.tags}}
+            <!-- <input
+                type="text"
+                data-role="tagsinput"
+                name="tags"
+                placeholder="Ex: cows, wildflowers, eggs"
+                id="{{ form.tags.id_for_label }}" 
+                class="form-control
+                    {% if form.tags.errors %}is-invalid{% endif %}
+                "
+                value="{% for tag in form.tags.value %}{{ tag }}{% if not forloop.last %}, {% endif %}{% endfor %}"
+              /> -->
+              <div class="form-text">Tags will help people find this post. Minimum 3.</div>
+            {% if form.tags.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.tags.errors %}
+                <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
-        <button type="submit" name="save_as_draft" class="btn btn-secondary">{% if form.instance.pk %}Save Changes{% else %}Save as Draft{% endif %}</button>
-        <button type="submit" name="submit" class="btn btn-primary">Publish</button>
+
+        <div class="d-flex justify-content-between flex-wrap">
+            <div>
+                <button type="submit" name="submit" class="btn btn-primary">Publish</button>
+                <button type="submit" name="save_as_draft" class="btn btn-secondary">{% if form.instance.pk %}Save Changes{% else %}Save as Draft{% endif %}</button>
+            </div>
+            <button 
+                class="btn btn-danger" 
+                type="button" 
+                data-bs-toggle="popover" 
+                data-bs-title="Confirm Delete" 
+                html=true
+                data-bs-content="
+                    Are you sure you would like to discard your changes? 
+                    <a href='{% url 'post-delete' form.instance.pk|default:0 %}' class='text-danger'>Click here to delete</a>.
+                "
+            >
+                {% if form.instance.pk %}
+                    Delete Draft
+                {% else %}
+                    Discard Changes
+                {% endif %}
+            </button>
+        </div>
     </form>
 </div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:999999">
+    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="10000">
+      <div class="toast-header">
+        <strong class="me-auto">{{sitename}}</strong>
+        <small class="text-body-secondary">just now</small>
+        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+      <div class="toast-body">
+        Looks like you haven't saved this post yet. Please click "cancel" on the Insert/Edit Image dialog, then click "Save as Draft," and try again.
+      </div>
+    </div>
+  </div>
 <script>
+let postEntryInstID
+//{% if form.instance.pk %}
+postEntryInstID = "{{form.instance.pk}}";
+//{% endif %}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+    const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
+
+    // Modify the allowList to allow <a> and its 'href' attribute
+    var myDefaultAllowList = bootstrap.Tooltip.Default.allowList;
+
+    // Allow <a> tag with 'href' attribute
+    myDefaultAllowList.a = ['href'];
+
+    // Initialize popovers with the custom allowList
+    [...popoverTriggerList].forEach(popoverTriggerEl => {
+        new bootstrap.Popover(popoverTriggerEl, {
+            allowList: myDefaultAllowList,
+            html: true  // Allow HTML rendering in the content
+        });
+    });
+    const toastElList = document.querySelectorAll('.toast')
+    const toastList = [...toastElList].map(toastEl => new bootstrap.Toast(toastEl))
+});
+
 const form = document.getElementById('postForm');
 let isFormDirty = false;
 
@@ -55,33 +175,80 @@ if (isFormDirty) {
     return 'You have unsaved changes. Are you sure you want to leave?';
 }
 });
-    function customFilePicker(callback, value, meta) {
-        let input = document.createElement('input');
-        input.setAttribute('type', 'file');
-        input.setAttribute('accept', meta.filetype === 'image' ? 'image/*' : 'video/*');
 
-        input.onchange = function () {
-            let file = this.files[0];
+function customFilePicker(callback, value, meta) {
+    
+    if (!postEntryInstID) {
+        //const toast = document.getElementById('liveToast');
+        //const toastInstance = bootstrap.Toast.getInstance(toast) || new bootstrap.Toast(toast);
+        //toastInstance.show();
+        fetch('{% url "create-dummy-post-instance" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',  // Django template tag for CSRF token
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.entry_id) {
+                console.log(data.entry_id)
+                postEntryInstID = data.entry_id
+                const postForm = document.getElementById("postForm");
+                if (postForm) {
+                    postForm.action = "{% url 'post-edit' '0' %}".replace('0', postEntryInstID);
+                }
+            } else {
+                console.error('Error creating instance');
+                alert("Error: no entry id found.")
+                return false
+            }
+        })
+        .catch(error => {
+            console.error('Error creating instance:', error);
+            alert('Error creating instance.');
+            return false
+        });
+    }
 
-            // Use FormData to send the file to the server
-            let formData = new FormData();
-            formData.append('file', file);
+    let input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*'); // Restrict to images only
 
-            fetch('/upload/', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
+    input.onchange = function () {
+        let file = this.files[0];
+
+        // Use FormData to send the file to the server
+        let formData = new FormData();
+        formData.append('file', file);
+        if (postEntryInstID) {
+            formData.append('post_entry_id', postEntryInstID);
+        }
+
+        fetch('{% url "image-upload" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.location) {
                 // Pass the file URL back to TinyMCE
                 callback(data.location);
-            })
-            .catch(error => {
-                console.error('Error uploading file:', error);
-            });
-        };
+            } else if (data.error) {
+                alert(data.error); // Display error message
+            }
+        })
+        .catch(error => {
+            console.error('Error uploading file:', error);
+            alert('Error uploading image.');
+        });
+    };
 
-        input.click();
-    }
+    input.click();
+
+}
 </script>
 {% endblock %}

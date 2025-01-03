@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from .models import SecretSignUpCode, CustomUser, PostEntry
 from tinymce.widgets import TinyMCE
+from taggit.forms import TagWidget
 
 class CustomSignUpForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -32,12 +33,30 @@ class EditProfilePhotoForm(forms.ModelForm):
         }
 
 class PostEntryForm(forms.ModelForm):
+    preset_post_id = forms.IntegerField(required=False, widget=forms.HiddenInput())
     class Meta:
         model = PostEntry
-        fields = ['category', 'title', 'post_body', 'tags']
+        fields = ['category', 'title', 'post_body', 'tags', 'preset_post_id']
         widgets = {
             'post_body': TinyMCE(attrs={'cols': 80, 'rows': 15}),
             'category': forms.Select(attrs={'class': 'form-select'}),
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: September family farm update'}),
-            'tags': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Add tags, separated by commas'}),
+            'tags': TagWidget(attrs={'class': 'form-control', 'placeholder': 'Ex: cows, wildflowers, eggs'}),
         }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        if 'submit' in self.data:
+            title = cleaned_data.get('title')
+            category = cleaned_data.get('category')
+            tags = cleaned_data.get('tags')
+            post_body = cleaned_data.get('post_body')
+            if not title:
+                self.add_error('title', "Please provide a title.")
+            if not category:
+                self.add_error('category', "Please provide a category.")
+            if not tags:
+                self.add_error('tags', "Please provide at least 3 tags.")
+            if not post_body:
+                self.add_error("post_body", "Please provide a body for the post.")
+        return cleaned_data

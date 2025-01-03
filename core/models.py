@@ -89,6 +89,8 @@ class PostEntry(models.Model):
     last_updated = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
+        if self.status == "Draft":
+            return "Draft " + str(self.id) + " by " + str(self.author)
         return self.title + " by " + str(self.author) + ", submitted: " + str(self.created_at)
 
 class FavoritePost(models.Model):

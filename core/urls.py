@@ -12,5 +12,7 @@ urlpatterns = [
     path('sign-out/', LogoutView.as_view(next_page=reverse_lazy('log-in')), name='sign-out'),
     path('post/new/', PostEntryCreateView.as_view(), name='post-create'),
     path('post/<int:pk>/edit/', PostEntryUpdateView.as_view(), name='post-edit'),
-    # path('ajax/image-upload/', ImageUpload, name="image-upload")
+    path('post/<int:pk>/delete/', PostEntryDeleteView.as_view(), name='post-delete'),
+    path('ajax/upload/', ImageUploadView.as_view(), name='image-upload'),
+    path('ajax/create-dummy-post-instance/', CreateDummyPostInstance, name="create-dummy-post-instance")
 ]

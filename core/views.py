@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import ListView, CreateView, UpdateView
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
-from .models import PostEntry
+from .models import PostEntry, ImageUpload
 from django.contrib.auth.views import LoginView
 from django.views.generic.edit import FormView
 from django.contrib.auth import login
@@ -11,7 +11,15 @@ from .forms import *
 from django.contrib import messages
 from django.utils.safestring import mark_safe
 from django.urls import reverse
-from django.utils.timezone import get_current_timezone_name
+from django.utils.timezone import get_current_timezone_name, now
+from django.http import HttpResponseRedirect
+import mimetypes
+from django.core.exceptions import ValidationError
+from django.core.files.images import get_image_dimensions
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.utils.decorators import method_decorator
+from django.views import View
 
 class HomeView(LoginRequiredMixin, ListView):
     model = PostEntry  # Replace with your model
@@ -76,7 +84,7 @@ def MyAccount(request):
 
     return render(request, "myaccount.html", {
         "form": form, 
-        "post_drafts": PostEntry.objects.filter(author=user, status="Draft"),
+        "post_drafts": PostEntry.objects.filter(author=user, status="Draft").order_by("-last_updated"),
         "active_user_timezone": get_current_timezone_name(),
         "timezones": {
             "US/Pacific (Los Angeles)": "America/Los_Angeles",
@@ -121,8 +129,10 @@ def MyAccount(request):
     })
 
 @login_required
-def ChangeTimezone(request):
-    pass
+def CreateDummyPostInstance(request):
+    newPostEntry = PostEntry(author=request.user)
+    newPostEntry.save()
+    return JsonResponse({"entry_id": newPostEntry.id}, status=201)
 
 def PasswordReset(request):
     return render(request, "passwordreset.html")
@@ -133,12 +143,18 @@ class PostEntryBaseView:
         if "save_as_draft" in self.request.POST:
             # Set status to "Draft" when Save as Draft button is clicked
             form.instance.status = "Draft"
-            messages.success(self.request, "Your changes were saved. Feel free to continue editing.")
+            form.instance.last_updated = now()
+            messages.success(self.request, "Your changes have been saved. Feel free to continue editing.")
         elif "submit" in self.request.POST:
             # Set status to "Live" when Submit button is clicked
             form.instance.status = "Live"
             messages.success(self.request, "Nice! Your post is now live.")
         return super().form_valid(form)
+
+    def form_invalid(self, form):
+        if "submit" in self.request.POST:
+            messages.error(self.request, "Please correct the errors, marked in red.")
+        return super().form_invalid(form)
 
     def get_success_url(self):
         if self.object.status == "Draft":
@@ -162,36 +178,77 @@ class PostEntryUpdateView(LoginRequiredMixin, PostEntryBaseView, UpdateView):
         # Ensure the user can only edit their own posts (optional, but a good practice)
         return PostEntry.objects.filter(author=self.request.user)
 
-# class PostEntryCreateView(LoginRequiredMixin, CreateView):
-#     model = PostEntry
-#     form_class = PostEntryForm
-#     template_name = 'postcreate.html'  # Replace with your actual template path
-#     success_url = reverse_lazy('home')  # Redirect after success (e.g., to a list of posts)
+class PostEntryDeleteView(LoginRequiredMixin, DeleteView):
+    model = PostEntry
+    success_url = reverse_lazy('home')
 
-#     def form_valid(self, form):
-#         form.instance.author = self.request.user  # Set the logged-in user as the author
-#         if "save_as_draft" in self.request.POST:
-#             # Set status to "Draft" when Save as Draft button is clicked
-#             form.instance.status = "Draft"
-#             messages.success(self.request, "Your changes were saved. Feel free to continue editing.")
-#         elif "submit" in self.request.POST:
-#             # Set status to "Live" when Submit button is clicked
-#             form.instance.status = "Live"
-#             messages.success(self.request, "Nice! Your post is now live.")
-#         return super().form_valid(form)
+    def dispatch(self, request, *args, **kwargs):
+        # Check if the pk is 0 before proceeding with any actions
+        pk = self.kwargs.get('pk')
+        
+        if pk == 0:  # Handle case where pk is 0 (invalid)
+            messages.info(self.request, "Changes discarded.")
+            return redirect('home')  # Redirect to home and skip all further actions
+        
+        # Proceed with the default dispatch behavior if pk is valid
+        return super().dispatch(request, *args, **kwargs)
 
-#     def get_success_url(self):
-#         if self.object.status == "Draft":
-#             return reverse_lazy('post-edit', kwargs={'pk': self.object.pk})
-#         else:
-#             return reverse_lazy('home')
+    def get_queryset(self):
+        return PostEntry.objects.filter(author=self.request.user)
 
-# class PostEntryUpdateView(LoginRequiredMixin, UpdateView):
-#     model = PostEntry
-#     form_class = PostEntryForm
-#     template_name = 'postcreate.html'  # Replace with your actual template path
-#     success_url = reverse_lazy('home')  # Redirect after success (e.g., to a list of posts)
+    def post(self, request, *args, **kwargs):
+        # Delete the object
+        if 'pk' in self.kwargs:
+            self.object = self.get_object()
+            self.object.delete()
 
-#     def get_queryset(self):
-#         # Ensure the user can only edit their own posts (optional, but a good practice)
-#         return PostEntry.objects.filter(author=self.request.user)
+            # Show success message
+            messages.success(self.request, "Draft successfully deleted.")
+        
+        # Redirect to the success URL after deletion
+        return HttpResponseRedirect(self.success_url)
+
+    def get(self, request, *args, **kwargs):
+        return self.post(request, *args, **kwargs)
+
+class ImageUploadView(LoginRequiredMixin, View):
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        uploaded_file = request.FILES.get('file')
+        post_entry_id = request.POST.get('post_entry_id')
+
+        # Validate file type
+        if not uploaded_file:
+            return JsonResponse({'error': 'No file provided.'}, status=400)
+        
+        mime_type, _ = mimetypes.guess_type(uploaded_file.name)
+        if not mime_type or not mime_type.startswith('image/'):
+            return JsonResponse({'error': 'Only image files are allowed.'}, status=400)
+
+        # Validate dimensions or size if necessary
+        try:
+            get_image_dimensions(uploaded_file)
+        except ValidationError:
+            return JsonResponse({'error': 'Invalid image file.'}, status=400)
+        
+        related_post_entry = None
+        if post_entry_id:
+            try:
+                related_post_entry = PostEntry.objects.get(pk=post_entry_id)
+            except PostEntry.DoesNotExist:
+                return JsonResponse({'error': 'Invalid PostEntry ID.'}, status=400)
+        else:
+            return JsonResponse({'error': 'Please save the post before adding images.'}, status=400)
+
+        # Save to the model
+        image_upload = ImageUpload(
+            uploaded_by=request.user,
+            uploaded_image=uploaded_file,
+            related_post_entry=related_post_entry
+        )
+        image_upload.save()
+
+        # Return the image URL to TinyMCE
+        return JsonResponse({'location': image_upload.uploaded_image.url})

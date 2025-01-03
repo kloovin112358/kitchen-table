@@ -9,11 +9,7 @@ class TimezoneMiddleware:
     def __call__(self, request):
         tzname = request.session.get("django_timezone")
         if tzname:
-            print("NOT DEFAULT!!!")
             timezone.activate(zoneinfo.ZoneInfo(tzname))
-            print(timezone.get_current_timezone_name())
         else:
-            print("DEFAULT!!!!")
             timezone.activate(zoneinfo.ZoneInfo(os.getenv("DEFAULT_DISPLAY_TIMEZONE")))
-            print(timezone.get_current_timezone_name())
         return self.get_response(request)

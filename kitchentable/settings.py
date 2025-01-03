@@ -121,15 +121,26 @@ TINYMCE_DEFAULT_CONFIG = {
     # "height": "320px",
     # "width": "960px",
     "menubar": "file edit view insert format tools table help",
-    "plugins": "advlist autolink lists link image charmap print preview anchor searchreplace visualblocks code "
-    "fullscreen insertdatetime media table paste code help wordcount spellchecker",
+    "plugins": "advlist autolink lists link image charmap preview anchor searchreplace visualblocks code "
+    "fullscreen insertdatetime media table code help wordcount",
     "toolbar": "undo redo | bold italic underline strikethrough | fontselect fontsizeselect formatselect | alignleft "
     "aligncenter alignright alignjustify | outdent indent |  numlist bullist checklist | forecolor "
     "backcolor casechange permanentpen formatpainter removeformat | pagebreak | charmap emoticons | "
-    "fullscreen  preview save print | insertfile image media pageembed template link anchor codesample | "
+    "fullscreen  preview save | insertfile image media pageembed template link anchor codesample | "
     "a11ycheck ltr rtl | showcomments addcomment code",
     "custom_undo_redo_levels": 10,
     "automatic_uploads": True,
     "file_picker_types": "file image media",
     "file_picker_callback": "function (callback, value, meta) { customFilePicker(callback, value, meta); }",
+    # "setup": """function (editor) {
+    #     editor.on('OpenWindow', function (e) {
+    #         const dialog = e.window;
+    #         console.log(e)
+    #         if (dialog.title === 'Insert/Edit Image') {
+    #             console.log('Insert/Edit Image dialog opened.');
+    #         }
+    #     });
+    # }"""
 }
+
+TAGGIT_CASE_INSENSITIVE = True
