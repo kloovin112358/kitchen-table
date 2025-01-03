@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import SecretSignUpCode, CustomUser
+from .models import SecretSignUpCode, CustomUser, PostEntry
+from tinymce.widgets import TinyMCE
 
 class CustomSignUpForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -28,4 +29,15 @@ class EditProfilePhotoForm(forms.ModelForm):
         fields = ['profile_photo']
         widgets = {
             'profile_photo': forms.FileInput(attrs={'class': 'form-control'}),
+        }
+
+class PostEntryForm(forms.ModelForm):
+    class Meta:
+        model = PostEntry
+        fields = ['category', 'title', 'post_body', 'tags']
+        widgets = {
+            'post_body': TinyMCE(attrs={'cols': 80, 'rows': 15}),
+            'category': forms.Select(attrs={'class': 'form-select'}),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: September family farm update'}),
+            'tags': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Add tags, separated by commas'}),
         }

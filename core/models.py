@@ -43,6 +43,7 @@ class CustomUser(AbstractUser):
     email = models.EmailField(_('email address'), unique=True)
     join_date = models.DateField(default=timezone.now)
     profile_photo = models.ImageField(blank=True, null=True)
+    local_timezone = models.CharField(blank=True, null=True, max_length=50)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ["first_name", "last_name"]
@@ -66,18 +67,26 @@ class PostCategory(models.Model):
 
     def __str__(self):
         return self.category
+
+    class Meta:
+        ordering = ['category']
     
 class PostEntry(models.Model):
-    status = models.CharField(max_length=5, choices=[
-        ("Live", _("Live")),
-        ("Draft", _("Draft"))
-    ])
-    category = models.ForeignKey(PostCategory, on_delete=models.RESTRICT)
+    status = models.CharField(
+        max_length=5, 
+        choices=[
+            ("Live", _("Live")),
+            ("Draft", _("Draft"))
+        ],
+        default="Draft"
+    )
+    category = models.ForeignKey(PostCategory, on_delete=models.RESTRICT, blank=True, null=True)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
-    title = models.CharField(max_length=150)
-    post_body = HTMLField()
-    tags = TaggableManager()
-    created_at = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(blank=True, null=True, max_length=150)
+    post_body = HTMLField(blank=True, null=True)
+    tags = TaggableManager(blank=True)
+    created_at = models.DateTimeField(blank=True, null=True)
+    last_updated = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title + " by " + str(self.author) + ", submitted: " + str(self.created_at)
@@ -86,17 +95,9 @@ class FavoritePost(models.Model):
     post_entry = models.ForeignKey(PostEntry, on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
-class MediaUpload(models.Model):
-    media_type = models.CharField(
-        max_length=5, 
-        choices=[
-            ("Image", _("Image")), 
-            ("Video", _("Video")), 
-        ]
-    )
+class ImageUpload(models.Model):
     related_post_entry = models.ForeignKey(PostEntry, on_delete=models.CASCADE, blank=True, null=True)
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
-    media_link = models.URLField()
+    uploaded_image = models.ImageField()
     uploaded_at = models.DateTimeField(auto_now_add=True)
     caption = models.CharField(blank=True, null=True, max_length=200)
-

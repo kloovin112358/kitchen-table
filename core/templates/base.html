@@ -28,6 +28,38 @@
         rel="stylesheet"
         href="{% static 'base.css' %}"
     />
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // Check if a theme is already saved in the cookies
+        const theme = getCookie('theme') || 'auto';  // Default to 'auto' if no cookie exists
+        applyTheme(theme);
+
+        // Apply the selected theme
+        function applyTheme(theme) {
+          const html = document.documentElement; // The <html> element
+      
+          if (theme === 'light') {
+            html.setAttribute('data-bs-theme', 'light');
+          } else if (theme === 'dark') {
+            html.setAttribute('data-bs-theme', 'dark');
+          } else {
+            // Auto mode: Use the system's default theme
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+              html.setAttribute('data-bs-theme', 'dark');
+            } else {
+              html.setAttribute('data-bs-theme', 'light');
+            }
+          }
+        }
+
+        // Utility function to get cookies
+        function getCookie(name) {
+          const value = `; ${document.cookie}`;
+          const parts = value.split(`; ${name}=`);
+          if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+      });
+    </script>
   </head>
   <body class="d-flex flex-column h-100">
     <header>
@@ -57,7 +89,10 @@
                   <a class="nav-link" href=""><i class="bi bi-star"></i> Favorites</a>
                 </li>
                 <li class="d-lg-none nav-item">
-                  <a class="nav-link" href=""><i class="bi bi-plus-lg"></i> Create</a>
+                  <a class="nav-link" href="{% url 'post-create' %}"><i class="bi bi-plus-lg"></i> Create Post</a>
+                </li>
+                <li class="d-lg-none nav-item">
+                  <a class="nav-link" href=""><i class="bi bi-cloud-arrow-up"></i> Upload Media</a>
                 </li>
                 <li class="d-lg-none nav-item">
                   <a class="nav-link" href="{% url 'my-account' %}"><i class="bi bi-person-circle"></i> My Account</a>
@@ -77,21 +112,27 @@
               {% endif %}
             </ul>
             {% if request.user.is_authenticated %}
-              <a class="btn btn-primary me-2 rounded-corners d-none d-lg-block" href="{% url 'admin:index' %}">
+            <div class="dropdown">
+              <button class="btn btn-primary me-2 rounded-corners d-none d-lg-block dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-plus-lg"></i> Create
-              </a>
+              </button>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{% url 'post-create' %}">Create Post</a></li>
+                <li><a class="dropdown-item" href="#">Upload Media</a></li>
+              </ul>
+            </div>
               {% if request.user.profile_photo %}
               <a href="{% url 'my-account' %}" class="profile-photo text-decoration-none d-none d-lg-block">
                 <img src="{{ request.user.profile_photo.url }}" alt="{{request.user.get_full_name}} Profile Photo" class="rounded-circle"/>
               </a>
               {% else %}
-                <a class="btn btn-outline-dark d-none d-lg-block" href="{% url 'my-account' %}">
+                <a class="btn outline-button d-none d-lg-block" href="{% url 'my-account' %}">
                   <i class="bi bi-person-circle"></i>
                   {{request.user.get_full_name}}
                 </a>
               {% endif %}
               {% if request.user.is_staff %}
-                <a class="btn btn-outline-dark ms-2 rounded-corners d-none d-lg-block" href="{% url 'admin:index' %}"><i class="bi bi-incognito"></i> Admin</a>
+                <a class="btn outline-button ms-2 rounded-corners d-none d-lg-block" href="{% url 'admin:index' %}"><i class="bi bi-incognito"></i> Admin</a>
               {% endif %}
             {% else %}
               <a class="btn btn-outline-primary me-1 rounded-corners d-none d-lg-block" href="{% url 'log-in' %}">
@@ -134,7 +175,6 @@
               <a class="nav-link" href="">
                 <i class="bi bi-github"></i>
               </a>
-              <!-- <a class="nav-link ms-3" href="/contact">Contact Us</a> -->
             </div>
           </div>
         </div>
