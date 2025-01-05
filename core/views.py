@@ -25,7 +25,7 @@ class HomeView(LoginRequiredMixin, ListView):
     model = PostEntry  # Replace with your model
     template_name = 'home.html'  # Path to your template
     context_object_name = 'posts'  # Name to access objects in the template
-    paginate_by = 1  # Number of items per page
+    paginate_by = 10  # Number of items per page
     login_url = reverse_lazy('log-in')  # Redirect to login if not authenticated
 
     def get_queryset(self):
@@ -133,6 +133,10 @@ def CreateDummyPostInstance(request):
     newPostEntry = PostEntry(author=request.user)
     newPostEntry.save()
     return JsonResponse({"entry_id": newPostEntry.id}, status=201)
+
+@login_required
+def Gallery(request):
+    return render(request, "gallery.html", {})
 
 def PasswordReset(request):
     return render(request, "passwordreset.html")
