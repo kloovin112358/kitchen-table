@@ -11,6 +11,7 @@ urlpatterns = [
     path('password-reset/', PasswordReset, name="password-reset"),
     path('sign-out/', LogoutView.as_view(next_page=reverse_lazy('log-in')), name='sign-out'),
     path('post/new/', PostEntryCreateView.as_view(), name='post-create'),
+    path('post/<int:pk>/', ViewPost, name='post-view'),
     path('post/<int:pk>/edit/', PostEntryUpdateView.as_view(), name='post-edit'),
     path('post/<int:pk>/delete/', PostEntryDeleteView.as_view(), name='post-delete'),
     path('ajax/upload/', ImageUploadView.as_view(), name='image-upload'),

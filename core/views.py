@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
@@ -25,7 +25,7 @@ class HomeView(LoginRequiredMixin, ListView):
     model = PostEntry  # Replace with your model
     template_name = 'home.html'  # Path to your template
     context_object_name = 'posts'  # Name to access objects in the template
-    paginate_by = 10  # Number of items per page
+    paginate_by = 1  # Number of items per page
     login_url = reverse_lazy('log-in')  # Redirect to login if not authenticated
 
     def get_queryset(self):
@@ -140,14 +140,15 @@ def PasswordReset(request):
 class PostEntryBaseView:
     def form_valid(self, form):
         form.instance.author = self.request.user  # Set the logged-in user as the author
+        form.instance.last_updated = now()
         if "save_as_draft" in self.request.POST:
             # Set status to "Draft" when Save as Draft button is clicked
             form.instance.status = "Draft"
-            form.instance.last_updated = now()
             messages.success(self.request, "Your changes have been saved. Feel free to continue editing.")
         elif "submit" in self.request.POST:
             # Set status to "Live" when Submit button is clicked
             form.instance.status = "Live"
+            form.instance.created_at = now()
             messages.success(self.request, "Nice! Your post is now live.")
         return super().form_valid(form)
 
@@ -252,3 +253,8 @@ class ImageUploadView(LoginRequiredMixin, View):
 
         # Return the image URL to TinyMCE
         return JsonResponse({'location': image_upload.uploaded_image.url})
+
+@login_required
+def ViewPost(request, pk):
+    post = get_object_or_404(PostEntry, pk=pk)
+    return render(request, "postview.html", {"post": post})

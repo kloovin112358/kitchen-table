@@ -55,7 +55,7 @@ class PostEntryForm(forms.ModelForm):
                 self.add_error('title', "Please provide a title.")
             if not category:
                 self.add_error('category', "Please provide a category.")
-            if not tags:
+            if not tags or len(tags) < 3:
                 self.add_error('tags', "Please provide at least 3 tags.")
             if not post_body:
                 self.add_error("post_body", "Please provide a body for the post.")

@@ -8,7 +8,6 @@
     <p class="mb-4">Share an update or a how-to for the family wiki.</p>
     <form method="post" id="postForm">
         {{ form.preset_post_id }}
-
         {% csrf_token %}
         <!-- {{form.errors}} -->
         <div class="mb-3">
@@ -81,7 +80,7 @@
               /> -->
               <div class="form-text">Tags will help people find this post. Minimum 3.</div>
             {% if form.tags.errors %}
-            <div class="invalid-feedback">
+            <div class="invalid-feedback" style="display:block!important;">
                 {% for error in form.tags.errors %}
                 <p>{{ error }}</p>
                 {% endfor %}
