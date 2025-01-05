@@ -1,0 +1,9 @@
+asgiref==3.8.1
+Django==5.1.4
+django-taggit==6.1.0
+django-tinymce==4.1.0
+pillow==11.0.0
+python-dotenv==1.0.1
+sqlparse==0.5.3
+tzdata==2024.2
+wonderwords==2.2.0
