@@ -1,10 +1,35 @@
 {% extends 'base.html' %}
 
-{% block title %}{% if form.instance.pk %}Edit Draft{% else %}Create Post{% endif %}{% endblock %}
+{% block title %}
+    {% if form.instance.pk %}
+        {% if form.instance.status == "Draft" %}
+            Edit Draft
+        {% else %}
+            Edit Post
+        {% endif %}
+    {% else %}
+        Create Post
+    {% endif %}
+{% endblock %}
 {% block content %}
 {{ form.media }}
 <div class="container pb-5 mt-3">
-    <h1 class="display-5 fw-bold">{% if form.instance.pk %}Edit Draft{% else %}Create a Post{% endif %}</h1>
+    {% if form.instance.pk and form.instance.status == "Live" %}
+    <nav class="mb-3">
+        <a href="{% url 'post-view' form.instance.id %}" class="text-decoration-none"><i class="bi bi-arrow-left me-2"></i>View Post</a>
+    </nav>
+    {% endif %}
+    <h1 class="display-5 fw-bold">
+        {% if form.instance.pk %}
+            {% if form.instance.status == "Draft" %}
+                Edit Draft
+            {% else %}
+                Edit Post
+            {% endif %}
+        {% else %}
+            Create a Post
+        {% endif %}
+    </h1>
     <p class="mb-4">Share an update or a how-to for the family wiki.</p>
     <form method="post" id="postForm">
         {{ form.preset_post_id }}
@@ -90,8 +115,16 @@
 
         <div class="d-flex justify-content-between flex-wrap">
             <div>
-                <button type="submit" name="submit" class="btn btn-primary">Publish</button>
+                <button type="submit" name="submit" class="btn btn-primary">
+                    {% if form.instance.pk %}
+                    Save Changes
+                    {% else %}
+                    Publish
+                    {% endif %}
+                </button>
+                {% if not form.instance.pk %}
                 <button type="submit" name="save_as_draft" class="btn btn-secondary">{% if form.instance.pk %}Save Changes{% else %}Save as Draft{% endif %}</button>
+                {% endif %}
             </div>
             <button 
                 class="btn btn-danger" 
@@ -105,7 +138,11 @@
                 "
             >
                 {% if form.instance.pk %}
+                    {% if form.instance.status == "Draft" %}
                     Delete Draft
+                    {% else %}
+                    Delete Post
+                    {% endif %}
                 {% else %}
                     Discard Changes
                 {% endif %}
@@ -191,7 +228,6 @@ function customFilePicker(callback, value, meta) {
         .then(response => response.json())
         .then(data => {
             if (data.entry_id) {
-                console.log(data.entry_id)
                 postEntryInstID = data.entry_id
                 const postForm = document.getElementById("postForm");
                 if (postForm) {

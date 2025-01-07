@@ -10,13 +10,14 @@
                 <input class="form-control flex-grow-1 me-2" placeholder="Search for posts">
                 <button class="btn outline-button" >Search</button>
             </div>
-            <div class="mt-3 d-flex flex-wrap gap-2">
+            <div class="mt-3 d-flex flex-wrap gap-2 justify-content-center">
                 {% for post in posts %}
                 <a class="text-decoration-none" href="{% url 'post-view' post.id %}">
-                    <div class="card" style="width:400px">
+                    <div class="card" style="width:310px">
                         <div class="card-body p-4">
+                            <img src="{{post.prefetched_images.0.uploaded_image.url}}" style="width:100%"/>
                             <h2 class="h4 fw-bold">{{post.title}}</h2>
-                            <p>By: {{post.author.get_full_name}}</p>
+                            <p><i class="bi bi-person-fill"></i> {{post.author.get_full_name}}</p>
                         </div>
                     </div>
                 </a>

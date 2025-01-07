@@ -2,7 +2,66 @@
 
 {% block title %}Gallery{% endblock %}
 {% block content %}
+<style>
+.masonry-item {
+    width: 100%;
+}
+
+@media (min-width: 768px) {
+    .masonry-item {
+    width: 50%;
+    }
+}
+
+@media (min-width: 1200px) {
+    .masonry-item {
+    width: 33.333333%;
+    }
+}
+</style>
+<script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
 <div class="container pb-5 mt-3">
-    <h1>dogs</h1>
+    <div id="photoGrid">
+        {% for photo in photos %}
+        <img 
+            src="{{photo.uploaded_image.url}}"
+            class="masonry-item"
+            loading="lazy"
+        />
+        {% endfor %}
+    </div>
 </div>
+<script>
+// Function to check if all images are loaded
+function areAllImagesLoaded(images) {
+    return Array.from(images).every(img => img.complete && img.naturalHeight !== 0);
+  }
+
+  // Get the photo grid and masonry items
+  const grid = document.querySelector("#photoGrid");
+  const items = grid.querySelectorAll(".masonry-item");
+
+  // Initialize Masonry
+  const masonryInstance = new Masonry(grid, {
+    itemSelector: ".masonry-item",
+    columnWidth: ".masonry-item",
+    percentPosition: true
+  });
+
+  // Function to layout Masonry after all images are loaded
+  function layoutMasonryAfterImagesLoaded() {
+    const images = grid.querySelectorAll("img");
+
+    // Check if all images are loaded
+    if (areAllImagesLoaded(images)) {
+      masonryInstance.layout();
+    } else {
+      // If images are not loaded, retry after a short delay
+      setTimeout(layoutMasonryAfterImagesLoaded, 100);
+    }
+  }
+
+  // Ensure Masonry layout is triggered once images are loaded
+  layoutMasonryAfterImagesLoaded();
+</script>
 {% endblock %}

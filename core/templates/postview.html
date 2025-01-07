@@ -4,10 +4,20 @@
 {% block title %}Post {{post}}{% endblock %}
 {% block content %}
 <div class="container pb-5 mt-3">
+    <nav>
+        {% if referrer_link %}
+            <a href="{{referrer_link}}" class="text-decoration-none"><i class="bi bi-arrow-left me-2"></i>Back to posts</a>
+        {% else %}
+            <a href="{% url 'home' %}" class="text-decoration-none"><i class="bi bi-arrow-left me-2"></i>View all posts</a>
+        {% endif %}
+    </nav>
     <section>
         <div class="py-4">
-            <h1 class="fw-bold display-4">{{post.title}}</h1>
-            <div class="d-flex align-items-center flex-wrap">
+            <h1 class="fw-bold display-4 {% if post.author == request.user %}mb-0{% endif %}">{{post.title}}</h1>
+            {% if post.author == request.user %}
+                <a href="{% url 'post-edit' post.id %}">Edit this post</a>
+            {% endif %}
+            <div class="d-flex align-items-center flex-wrap {% if post.author == request.user %}mt-3{% endif %}">
                 {% if post.author.profile_photo %}
                 <div class="profile-photo">
                     <img src="{{ post.author.profile_photo.url }}" alt="{{post.author.get_full_name}} Profile Photo" class="rounded-circle"/> 

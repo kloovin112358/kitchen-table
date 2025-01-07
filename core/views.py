@@ -20,6 +20,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
+from django.db.models import Prefetch
+from urllib.parse import urlparse
 
 class HomeView(LoginRequiredMixin, ListView):
     model = PostEntry  # Replace with your model
@@ -29,7 +31,12 @@ class HomeView(LoginRequiredMixin, ListView):
     login_url = reverse_lazy('log-in')  # Redirect to login if not authenticated
 
     def get_queryset(self):
-        return PostEntry.objects.filter(status='Live').order_by('-created_at')
+        image_prefetch = Prefetch(
+            'imageupload_set',  # Reverse relation from PostEntry to ImageUpload
+            queryset=ImageUpload.objects.order_by('uploaded_at'),  # Oldest image first
+            to_attr='prefetched_images'  # Attribute to store prefetched images
+        )
+        return PostEntry.objects.filter(status='Live').order_by('-created_at').prefetch_related(image_prefetch)
 
 class LoginView(LoginView):
     template_name = 'login.html'  # Path to your login template
@@ -136,7 +143,9 @@ def CreateDummyPostInstance(request):
 
 @login_required
 def Gallery(request):
-    return render(request, "gallery.html", {})
+    return render(request, "gallery.html", {
+        "photos": ImageUpload.objects.all()
+    })
 
 def PasswordReset(request):
     return render(request, "passwordreset.html")
@@ -151,9 +160,12 @@ class PostEntryBaseView:
             messages.success(self.request, "Your changes have been saved. Feel free to continue editing.")
         elif "submit" in self.request.POST:
             # Set status to "Live" when Submit button is clicked
-            form.instance.status = "Live"
-            form.instance.created_at = now()
-            messages.success(self.request, "Nice! Your post is now live.")
+            if form.instance.id:
+                messages.success(self.request, "Sweet! Your post has been updated.")
+            else:
+                form.instance.status = "Live"
+                form.instance.created_at = now()
+                messages.success(self.request, "Nice! Your post is now live.")
         return super().form_valid(form)
 
     def form_invalid(self, form):
@@ -261,4 +273,11 @@ class ImageUploadView(LoginRequiredMixin, View):
 @login_required
 def ViewPost(request, pk):
     post = get_object_or_404(PostEntry, pk=pk)
-    return render(request, "postview.html", {"post": post})
+    referrer = request.META.get('HTTP_REFERER', '')
+    home_url = reverse('home')  # Replace 'home' with the actual name of your URL pattern
+    referrer_path = urlparse(referrer).path
+    if referrer_path == home_url:
+        referrer_link = referrer
+    else:
+        referrer_link = None
+    return render(request, "postview.html", {"post": post, "referrer_link": referrer_link})
