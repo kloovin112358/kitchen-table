@@ -116,13 +116,13 @@
         <div class="d-flex justify-content-between flex-wrap">
             <div>
                 <button type="submit" name="submit" class="btn btn-primary">
-                    {% if form.instance.pk %}
+                    {% if form.instance.pk and form.instance.status == "Live" %}
                     Save Changes
                     {% else %}
                     Publish
                     {% endif %}
                 </button>
-                {% if not form.instance.pk %}
+                {% if not form.instance.pk or form.instance.pk and form.instance.status != "Live" %}
                 <button type="submit" name="save_as_draft" class="btn btn-secondary">{% if form.instance.pk %}Save Changes{% else %}Save as Draft{% endif %}</button>
                 {% endif %}
             </div>

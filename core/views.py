@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
-from .models import PostEntry, ImageUpload
+from .models import PostEntry, ImageUpload, Favorite
 from django.contrib.auth.views import LoginView
 from django.views.generic.edit import FormView
 from django.contrib.auth import login
@@ -20,7 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q, OuterRef, Exists
 from urllib.parse import urlparse
 
 class HomeView(LoginRequiredMixin, ListView):
@@ -31,12 +31,51 @@ class HomeView(LoginRequiredMixin, ListView):
     login_url = reverse_lazy('log-in')  # Redirect to login if not authenticated
 
     def get_queryset(self):
+        # Base queryset
+        queryset = PostEntry.objects.filter(status='Live')
+
+        favorite_status = Favorite.objects.filter(
+            user=self.request.user, 
+            post_entry=OuterRef('pk')
+        )
+
+        # Handle query parameters with snake_case
+        favorites_only = self.request.GET.get('favorites_only', 'false').lower() == 'on'
+        sort_by = self.request.GET.get('sort_by', 'latest')  # Default to 'new'
+        search = self.request.GET.get('search', '').strip()  # Get the search query
+        
+        # Filter for favorites only if specified
+        if favorites_only:
+            queryset = queryset.filter(Exists(favorite_status))
+        
+        # Filter by search string (title or tags)
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) | Q(tags__name__icontains=search)
+            ).distinct()
+
+        # Apply sorting
+        if sort_by == 'latest':
+            queryset = queryset.order_by('-created_at')  # Newest first
+        elif sort_by == 'oldest':
+            queryset = queryset.order_by('created_at')  # Oldest first
+
+        # Prefetch related images
         image_prefetch = Prefetch(
             'imageupload_set',  # Reverse relation from PostEntry to ImageUpload
             queryset=ImageUpload.objects.order_by('uploaded_at'),  # Oldest image first
             to_attr='prefetched_images'  # Attribute to store prefetched images
         )
-        return PostEntry.objects.filter(status='Live').order_by('-created_at').prefetch_related(image_prefetch)
+        queryset = queryset.annotate(is_favorite=Exists(favorite_status))
+        return queryset.prefetch_related(image_prefetch)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add query parameters to the context for template usage
+        context['favorites_only'] = self.request.GET.get('favorites_only', 'false')
+        context['sort_by'] = self.request.GET.get('sort_by', 'latest')
+        context['search'] = self.request.GET.get('search', '')
+        return context
 
 class LoginView(LoginView):
     template_name = 'login.html'  # Path to your login template
@@ -92,6 +131,7 @@ def MyAccount(request):
     return render(request, "myaccount.html", {
         "form": form, 
         "post_drafts": PostEntry.objects.filter(author=user, status="Draft").order_by("-last_updated"),
+        "posts": PostEntry.objects.filter(author=user, status="Live"),
         "active_user_timezone": get_current_timezone_name(),
         "timezones": {
             "US/Pacific (Los Angeles)": "America/Los_Angeles",
@@ -141,11 +181,18 @@ def CreateDummyPostInstance(request):
     newPostEntry.save()
     return JsonResponse({"entry_id": newPostEntry.id}, status=201)
 
-@login_required
-def Gallery(request):
-    return render(request, "gallery.html", {
-        "photos": ImageUpload.objects.all()
-    })
+class Gallery(LoginRequiredMixin, ListView):
+    model = ImageUpload  # Replace with your model
+    template_name = 'gallery.html'  # Path to your template
+    context_object_name = 'photos'  # Name to access objects in the template
+    paginate_by = 3  # Number of items per page
+    login_url = reverse_lazy('log-in')  # Redirect to login if not authenticated
+
+# @login_required
+# def Gallery(request):
+#     return render(request, "gallery.html", {
+#         "photos": ImageUpload.objects.all()
+#     })
 
 def PasswordReset(request):
     return render(request, "passwordreset.html")
@@ -160,7 +207,7 @@ class PostEntryBaseView:
             messages.success(self.request, "Your changes have been saved. Feel free to continue editing.")
         elif "submit" in self.request.POST:
             # Set status to "Live" when Submit button is clicked
-            if form.instance.id:
+            if form.instance.id and form.instance.status == "Live":
                 messages.success(self.request, "Sweet! Your post has been updated.")
             else:
                 form.instance.status = "Live"
@@ -273,11 +320,26 @@ class ImageUploadView(LoginRequiredMixin, View):
 @login_required
 def ViewPost(request, pk):
     post = get_object_or_404(PostEntry, pk=pk)
-    referrer = request.META.get('HTTP_REFERER', '')
-    home_url = reverse('home')  # Replace 'home' with the actual name of your URL pattern
-    referrer_path = urlparse(referrer).path
-    if referrer_path == home_url:
-        referrer_link = referrer
+    if request.method == "POST":
+        existingFavoriteEntry = Favorite.objects.filter(post_entry=post, user=request.user).first()
+        if not existingFavoriteEntry:
+            newFavorite = Favorite(post_entry=post, user=request.user)
+            newFavorite.save()
+            messages.success(request, "Nice! You've added this post to your favorites.")
+        else:
+            existingFavoriteEntry.delete()
+            messages.info(request, "This post has been removed from your favorites.")
+        return redirect("post-view", pk=pk)
     else:
-        referrer_link = None
-    return render(request, "postview.html", {"post": post, "referrer_link": referrer_link})
+        referrer = request.META.get('HTTP_REFERER', '')
+        home_url = reverse('home')  # Replace 'home' with the actual name of your URL pattern
+        referrer_path = urlparse(referrer).path
+        if referrer_path == home_url:
+            referrer_link = referrer
+        else:
+            referrer_link = None
+        return render(request, "postview.html", {
+            "post": post, 
+            "referrer_link": referrer_link,
+            "is_favorite": Favorite.objects.filter(post_entry=post, user=request.user).exists()
+        })

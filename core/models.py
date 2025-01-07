@@ -93,13 +93,18 @@ class PostEntry(models.Model):
             return "Draft " + str(self.id) + " by " + str(self.author)
         return self.title + " by " + str(self.author) + ", submitted: " + str(self.created_at)
 
-class FavoritePost(models.Model):
-    post_entry = models.ForeignKey(PostEntry, on_delete=models.CASCADE)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-
 class ImageUpload(models.Model):
     related_post_entry = models.ForeignKey(PostEntry, on_delete=models.CASCADE, blank=True, null=True)
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     uploaded_image = models.ImageField()
     uploaded_at = models.DateTimeField(auto_now_add=True)
     caption = models.CharField(blank=True, null=True, max_length=200)
+
+    class Meta:
+        ordering = ['uploaded_at']
+
+
+class Favorite(models.Model):
+    post_entry = models.ForeignKey(PostEntry, on_delete=models.CASCADE, blank=True, null=True)
+    image_upload = models.ForeignKey(ImageUpload, on_delete=models.CASCADE, blank=True, null=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

@@ -21,11 +21,14 @@
 </style>
 <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
 <div class="container pb-5 mt-3">
+    <div>
+      Filter by user
+    </div>
     <div id="photoGrid">
         {% for photo in photos %}
         <img 
             src="{{photo.uploaded_image.url}}"
-            class="masonry-item"
+            class="masonry-item p-2"
             loading="lazy"
         />
         {% endfor %}

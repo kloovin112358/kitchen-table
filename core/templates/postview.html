@@ -3,6 +3,13 @@
 
 {% block title %}Post {{post}}{% endblock %}
 {% block content %}
+<style>
+img:not(.profilePhoto) {
+    width:auto;
+    max-width: 100%;
+    height:auto;
+}
+</style>
 <div class="container pb-5 mt-3">
     <nav>
         {% if referrer_link %}
@@ -15,17 +22,25 @@
         <div class="py-4">
             <h1 class="fw-bold display-4 {% if post.author == request.user %}mb-0{% endif %}">{{post.title}}</h1>
             {% if post.author == request.user %}
-                <a href="{% url 'post-edit' post.id %}">Edit this post</a>
+                <a href="{% url 'post-edit' post.id %}" class="text-decoration-none"><i class="bi bi-pencil me-2"></i>Edit this post</a>
             {% endif %}
-            <div class="d-flex align-items-center flex-wrap {% if post.author == request.user %}mt-3{% endif %}">
-                {% if post.author.profile_photo %}
-                <div class="profile-photo">
-                    <img src="{{ post.author.profile_photo.url }}" alt="{{post.author.get_full_name}} Profile Photo" class="rounded-circle"/> 
+            <div class="d-flex align-items-center flex-wrap justify-content-between {% if post.author == request.user %}mt-4{% endif %}">
+                <div class="d-flex align-items-center flex-wrap">
+                    {% if post.author.profile_photo %}
+                    <div class="profile-photo">
+                        <img src="{{ post.author.profile_photo.url }}" alt="{{post.author.get_full_name}} Profile Photo" class="rounded-circle profilePhoto"/> 
+                    </div>
+                    {% endif %}
+                    <div class="text-muted {% if post.author.profile_photo %}ms-3{% endif %}">
+                        {{post.author.get_full_name}} · {{post.created_at.date}}
+                    </div>
                 </div>
-                {% endif %}
-                <div class="text-muted {% if post.author.profile_photo %}ms-3{% endif %}">
-                    {{post.author.get_full_name}} · {{post.created_at.date}}
-                </div>
+                <form method="POST">
+                    {% csrf_token %}
+                    <button class="btn btn-link text-decoration-none">
+                        {% if is_favorite %}<i class="bi bi-star-fill me-1"></i>{% else %}<i class="bi bi-star me-1"></i>{% endif %} Favorite
+                    </button>
+                </form>
             </div>
             {% if post.created_at.date != post.last_updated.date %}
                 <p class="fst-italic text-muted">Last updated: {{post.last_updated|localtime}}</p>
