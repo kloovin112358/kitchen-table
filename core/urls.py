@@ -15,6 +15,7 @@ urlpatterns = [
     path('post/<int:pk>/', ViewPost, name='post-view'),
     path('post/<int:pk>/edit/', PostEntryUpdateView.as_view(), name='post-edit'),
     path('post/<int:pk>/delete/', PostEntryDeleteView.as_view(), name='post-delete'),
+    path('media-upload/', MediaUpload, name='media-upload'),
     path('ajax/upload/', ImageUploadView.as_view(), name='image-upload'),
     path('ajax/create-dummy-post-instance/', CreateDummyPostInstance, name="create-dummy-post-instance")
 ]

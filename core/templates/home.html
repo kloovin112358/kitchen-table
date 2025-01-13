@@ -37,11 +37,11 @@
                     </div>
                 </div>
             </div>
-            <div class="mt-3 d-flex flex-wrap gap-2">
+            <div class="mt-3 d-flex flex-wrap gap-2" id="postCardContainer">
                 {% for post in posts %}
-                <a class="text-decoration-none" href="{% url 'post-view' post.id %}">
+                <a class="text-decoration-none" href="{% url 'post-view' post.id %} postCard">
                     <div class="card" style="width:310px">
-                        <img src="{{post.prefetched_images.0.uploaded_image.url}}" style="width:100%" class="rounded-top thumbnailImage"/>
+                        <img src="{{post.prefetched_images.0.uploaded_image.url}}" style="width:100%" class="rounded-top"/>
                         <div class="card-body p-4">
                             
                             <h2 class="h4 fw-bold">
@@ -149,36 +149,32 @@
 </form>
 </div>
 <script>
-// Function to check if all images are loaded
-function areAllImagesLoaded(images) {
-    return Array.from(images).every(img => img.complete && img.naturalHeight !== 0);
+
+// Get the photo grid and masonry items
+const grid = document.querySelector("#photoGrid");
+const items = grid.querySelectorAll(".thumbnailImage");
+
+// Initialize Masonry
+const masonryInstance = new Masonry(grid, {
+itemSelector: ".thumbnailImage",
+columnWidth: ".thumbnailImage",
+percentPosition: true
+});
+
+// Function to layout Masonry after all images are loaded
+function layoutMasonryAfterImagesLoaded() {
+const images = grid.querySelectorAll("img");
+
+// Check if all images are loaded
+if (areAllImagesLoaded(images)) {
+    masonryInstance.layout();
+} else {
+    // If images are not loaded, retry after a short delay
+    setTimeout(layoutMasonryAfterImagesLoaded, 100);
+}
 }
 
-    // Get the photo grid and masonry items
-    const grid = document.querySelector("#photoGrid");
-    const items = grid.querySelectorAll(".thumbnailImage");
-
-    // Initialize Masonry
-    const masonryInstance = new Masonry(grid, {
-    itemSelector: ".thumbnailImage",
-    columnWidth: ".thumbnailImage",
-    percentPosition: true
-    });
-
-    // Function to layout Masonry after all images are loaded
-    function layoutMasonryAfterImagesLoaded() {
-    const images = grid.querySelectorAll("img");
-
-    // Check if all images are loaded
-    if (areAllImagesLoaded(images)) {
-        masonryInstance.layout();
-    } else {
-        // If images are not loaded, retry after a short delay
-        setTimeout(layoutMasonryAfterImagesLoaded, 100);
-    }
-    }
-
-    // Ensure Masonry layout is triggered once images are loaded
-    layoutMasonryAfterImagesLoaded();
+// Ensure Masonry layout is triggered once images are loaded
+layoutMasonryAfterImagesLoaded();
 </script>
 {% endblock %}

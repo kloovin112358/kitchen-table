@@ -109,6 +109,12 @@ class SignUpView(FormView):
         return super().form_valid(form)
 
 @login_required
+def MediaUpload(request):
+    return render(request, "mediaupload.html", {
+        
+    })
+
+@login_required
 def MyAccount(request):
     user = request.user
     form = EditProfilePhotoForm(instance=user)
@@ -185,7 +191,7 @@ class Gallery(LoginRequiredMixin, ListView):
     model = ImageUpload  # Replace with your model
     template_name = 'gallery.html'  # Path to your template
     context_object_name = 'photos'  # Name to access objects in the template
-    paginate_by = 3  # Number of items per page
+    paginate_by = 10  # Number of items per page
     login_url = reverse_lazy('log-in')  # Redirect to login if not authenticated
 
 # @login_required

@@ -23,16 +23,21 @@
 <div class="container pb-5 mt-3">
     <div>
       Filter by user
+      Filter by date range
+      Filter by tags or caption
     </div>
     <div id="photoGrid">
         {% for photo in photos %}
         <img 
             src="{{photo.uploaded_image.url}}"
             class="masonry-item p-2"
+            style="border-radius:15px"
             loading="lazy"
         />
         {% endfor %}
     </div>
+    <p>infinite scroll</p>
+    <p>hover to show caption, author, tags, post link, upload date</p>
 </div>
 <script>
 // Function to check if all images are loaded

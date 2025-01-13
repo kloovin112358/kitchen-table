@@ -99,6 +99,7 @@ class ImageUpload(models.Model):
     uploaded_image = models.ImageField()
     uploaded_at = models.DateTimeField(auto_now_add=True)
     caption = models.CharField(blank=True, null=True, max_length=200)
+    tags = TaggableManager(blank=True)
 
     class Meta:
         ordering = ['uploaded_at']
