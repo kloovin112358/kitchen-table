@@ -43,7 +43,7 @@ img:not(.profilePhoto) {
                 </form>
             </div>
             {% if post.created_at.date != post.last_updated.date %}
-                <p class="fst-italic text-muted">Last updated: {{post.last_updated|localtime}}</p>
+                <p class="fst-italic text-muted mt-2">Last updated: {{post.last_updated|localtime}}</p>
             {% endif %}
         </div>
         <hr />

@@ -20,14 +20,14 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
-from django.db.models import Prefetch, Q, OuterRef, Exists
+from django.db.models import Prefetch, Q, OuterRef, Exists, Min, Max
 from urllib.parse import urlparse
 
 class HomeView(LoginRequiredMixin, ListView):
     model = PostEntry  # Replace with your model
     template_name = 'home.html'  # Path to your template
     context_object_name = 'posts'  # Name to access objects in the template
-    paginate_by = 10  # Number of items per page
+    paginate_by = 12  # Number of items per page
     login_url = reverse_lazy('log-in')  # Redirect to login if not authenticated
 
     def get_queryset(self):
@@ -61,12 +61,13 @@ class HomeView(LoginRequiredMixin, ListView):
             queryset = queryset.order_by('created_at')  # Oldest first
 
         # Prefetch related images
-        image_prefetch = Prefetch(
-            'imageupload_set',  # Reverse relation from PostEntry to ImageUpload
-            queryset=ImageUpload.objects.order_by('uploaded_at'),  # Oldest image first
-            to_attr='prefetched_images'  # Attribute to store prefetched images
-        )
+        # image_prefetch = Prefetch(
+        #     'imageupload_set',  # Reverse relation from PostEntry to ImageUpload
+        #     queryset=ImageUpload.objects.order_by('uploaded_at'),  # Oldest image first
+        #     to_attr='prefetched_images'  # Attribute to store prefetched images
+        # )
         queryset = queryset.annotate(is_favorite=Exists(favorite_status))
+        return queryset
         return queryset.prefetch_related(image_prefetch)
 
     def get_context_data(self, **kwargs):
@@ -194,11 +195,67 @@ class Gallery(LoginRequiredMixin, ListView):
     paginate_by = 10  # Number of items per page
     login_url = reverse_lazy('log-in')  # Redirect to login if not authenticated
 
-# @login_required
-# def Gallery(request):
-#     return render(request, "gallery.html", {
-#         "photos": ImageUpload.objects.all()
-#     })
+    def get_queryset(self):
+        # Base queryset
+        queryset = ImageUpload.objects.filter(
+            Q(related_post_entry__isnull=True) | 
+            Q(related_post_entry__status="Live")
+        )
+
+        favorite_status = Favorite.objects.filter(
+            user=self.request.user, 
+            image_upload=OuterRef('pk')
+        )
+
+        # Handle query parameters with snake_case
+        favorites_only = self.request.GET.get('favorites_only', 'false').lower() == 'on'
+        sort_by = self.request.GET.get('sort_by', 'latest')  # Default to 'new'
+        search = self.request.GET.get('search', '').strip()  # Get the search query
+        
+        # Filter for favorites only if specified
+        if favorites_only:
+            queryset = queryset.filter(Exists(favorite_status))
+        
+        # Filter by search string (title or tags)
+        if search:
+            queryset = queryset.filter(
+                Q(caption__icontains=search) | Q(tags__name__icontains=search)
+            ).distinct()
+
+        # Apply sorting
+        if sort_by == 'latest':
+            queryset = queryset.order_by('-uploaded_at')  # Newest first
+        elif sort_by == 'oldest':
+            queryset = queryset.order_by('uploaded_at')  # Oldest first
+
+        queryset = queryset.annotate(is_favorite=Exists(favorite_status))
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add query parameters to the context for template usage
+        context['favorites_only'] = self.request.GET.get('favorites_only', 'false')
+        context['sort_by'] = self.request.GET.get('sort_by', 'latest')
+        context['search'] = self.request.GET.get('search', '')
+
+        filtered_queryset = ImageUpload.objects.filter(
+            Q(related_post_entry__isnull=True) | 
+            Q(related_post_entry__status="Live")
+        )
+        
+        # Calculate the min and max dates
+        date_range = filtered_queryset.aggregate(
+            min_date=Min('uploaded_at'),
+            max_date=Max('uploaded_at')
+        )
+
+        context['min_date'] = date_range['min_date']
+        context['max_date'] = date_range['max_date']
+
+        context['users'] = CustomUser.objects.all()
+        return context
+
+
 
 def PasswordReset(request):
     return render(request, "passwordreset.html")

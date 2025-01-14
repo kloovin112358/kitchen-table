@@ -20,26 +20,132 @@
 }
 </style>
 <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
+{% load static %}
+<link 
+  rel="stylesheet"
+  href="{% static 'nouislider.min.css' %}"
+/>
+<style>
+  .noUi-connect {
+    background: #0d6efd!important;
+}
+</style>
+<script src="{% static 'nouislider.min.js' %}"></script>
 <div class="container pb-5 mt-3">
-    <div>
-      Filter by user
-      Filter by date range
-      Filter by tags or caption
+  <form method="GET">
+    <div class="accordion" id="accordionExample">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+            Filters
+          </button>
+        </h2>
+        <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
+          <div class="accordion-body">
+            <div class="mt-5 px-4 px-lg-5 mb-3 mb-lg-0">
+              <div id="slider"></div>
+            </div>
+            <h1 class="visually-hidden">View photos</h1>
+            <div class="pt-2 pt-lg-3 row">
+              <div class="col-lg mb-3 mb-lg-0">
+                <label for="searchQuery" class="form-label">Search for images by tag or caption</label>
+                <input class="form-control" placeholder="Ex: baseball" name="search" value="{{search}}" id="searchQuery">
+              </div>
+              <div class="col-lg mb-3 mb-lg-0">
+                <label for="usersFilter" class="form-label">Filter by user(s) who uploaded the image</label>
+                <select class="form-select" multiple name="users" id="usersFilter" aria-describedby="usersFilterHelp">
+                  {% for user in users %}
+                    <option value="{{user.id}}">{{user.get_full_name}}</option>
+                  {% endfor %}
+                </select>
+                <div id="usersFilterHelp" class="form-text">Use ctrl + click to select multiple names.</div>
+              </div>
+                
+                <!-- <button class="btn outline-button btn-sm" type="submit">Search</button> -->
+            </div>
+            <button class="btn btn-primary">Apply Filters</button>
+            <button class="btn btn-secondary">Clear Filters</button>
+            
+          </div>
+        </div>
+      </div>
     </div>
+    <div class="d-flex flex-wrap justify-content-between pt-2 pb-3 align-items-center">
+      <div class="form-check form-switch">
+          <input 
+              class="form-check-input" 
+              type="checkbox" 
+              role="switch" 
+              name="favorites_only"
+              id="flexSwitchCheckDefault" 
+              {% if favorites_only == "on" %}checked{% endif %}
+              onchange="this.form.submit()"
+          >
+          <label class="form-check-label" for="flexSwitchCheckDefault" name="favorites_only">Favorites only</label>
+        </div>
+      <div class="row align-items-center">
+          <div class="col-auto">
+              <label for="sortBy">Sort by:</label>
+          </div>
+          <div class="col-auto ps-0">
+              <select class="form-select form-select-sm" id="sortBy" name="sort_by" onchange="this.form.submit()">
+                  <option value="latest" {% if sort_by == "latest" %}selected{% endif %}>Latest</option>
+                  <option value="oldest" {% if sort_by == "oldest" %}selected{% endif %}>Oldest</option>
+              </select>
+          </div>
+      </div>
+  </div>
+</form>
     <div id="photoGrid">
         {% for photo in photos %}
         <img 
             src="{{photo.uploaded_image.url}}"
-            class="masonry-item p-2"
+            class="masonry-item p-1 p-lg-2"
             style="border-radius:15px"
             loading="lazy"
         />
         {% endfor %}
     </div>
     <p>infinite scroll</p>
-    <p>hover to show caption, author, tags, post link, upload date</p>
+    <p>hover to show caption, author, tags, post link, upload date, download button</p>
 </div>
 <script>
+// Utility function to convert date to timestamp
+function toTimestamp(dateString) {
+  return new Date(dateString).getTime(); // Converts to milliseconds
+}
+
+// Utility function to format timestamps for the tooltip
+function formatDate(timestamp) {
+  const date = new Date(timestamp);
+  console.log(date)
+  return date.toLocaleDateString(); // Adjust locale as needed
+}
+
+// Access the min_date and max_date passed to the template
+const minDate = "{{ min_date|date:'Y-m-d' }}"; // 'Y-m-d' formats the date as 'YYYY-MM-DD'
+const maxDate = "{{ max_date|date:'Y-m-d' }}";
+
+// Create the slider
+noUiSlider.create(slider, {
+  start: [toTimestamp(minDate), toTimestamp(maxDate)], // Slider starts at min and max dates
+  connect: true,
+  range: {
+      min: toTimestamp(minDate), // Minimum date as timestamp
+      max: toTimestamp(maxDate)  // Maximum date as timestamp
+  },
+  step: 24 * 60 * 60 * 1000, // Step size: 1 day in milliseconds
+  tooltips: [
+      {
+          to: formatDate, // Format the tooltip as a date
+          from: Number // Convert tooltip back to timestamp
+      },
+      {
+          to: formatDate,
+          from: Number
+      }
+  ]
+});
 // Function to check if all images are loaded
 function areAllImagesLoaded(images) {
     return Array.from(images).every(img => img.complete && img.naturalHeight !== 0);
