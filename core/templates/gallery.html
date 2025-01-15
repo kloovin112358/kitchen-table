@@ -29,6 +29,18 @@
   .noUi-connect {
     background: #0d6efd!important;
 }
+.masonry-overlay {
+  background: rgba(0, 0, 0, 0.6); 
+  border-radius: 15px;
+  height:calc(100% - 0.5rem);
+  width:calc(100% - 0.5rem)
+}
+@media (min-width: 992px) { /* lg breakpoint */
+  .masonry-overlay {
+    height: calc(100% - 1rem); /* Adjust for larger margin */
+    width: calc(100% - 1rem);
+  }
+}
 </style>
 <script src="{% static 'nouislider.min.js' %}"></script>
 <div class="container pb-5 mt-3">
@@ -98,18 +110,99 @@
 </form>
     <div id="photoGrid">
         {% for photo in photos %}
-        <img 
-            src="{{photo.uploaded_image.url}}"
-            class="masonry-item p-1 p-lg-2"
-            style="border-radius:15px"
-            loading="lazy"
-        />
+          <div class="masonry-item">
+            <button style="background: none;border:none;padding:0;" class="m-1 m-lg-2 masonry-image-button" aria-expanded="false" aria-controls="masonry-content-{{forloop.counter}}">
+                <img 
+                    src="{{photo.uploaded_image.url}}"
+                    style="border-radius:15px;width:100%;height:100%;"
+                    class="masonry-item-image"
+                    loading="lazy"
+                >
+              </img>
+            </button>
+            <button 
+                id="masonry-content-{{forloop.counter}}"
+                class="masonry-overlay masonry-image-overlay-button d-none position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center"
+                role="region"
+                aria-hidden="true"
+              >
+                <div class="masonry-overlay-content text-white p-3">
+                  {% if photo.caption %}
+                  <p class="fst-italic">
+                    "{{photo.caption}}"
+                  </p>  
+                  {% endif %}
+                  <p>
+                    Uploaded by {{photo.uploaded_by.get_full_name}} on {{photo.uploaded_at|date}}
+                  </p>
+                  {% if photo.related_post_entry %}
+                    <a href="{% url 'post-view' photo.related_post_entry.id %}" class="btn btn-primary btn-sm rounded-corners internal-button" target="_blank" rel="noreferrer noopener">
+                      View Post <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
+                  {% endif %}
+                  {% if photo.tags.all.exists %}
+                  <div class="fs-6 d-flex flex-wrap gap-1 justify-content-center mb-3">
+                    {% for tag in photo.tags.all %}
+                        <span class="badge bg-light text-dark rounded-pill px-2">{{tag.name}}</span>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                  <!-- <button class="btn btn-sm btn-secondary internal-button"><i class="bi bi-cloud-download"></i> Download</button> -->
+                   <!-- {% if request.user == photo.uploaded_by %}
+                   <button class="btn btn-sm btn-danger internal-button"><i class="bi bi-trash3"></i> Delete</button>
+                   {% endif %} -->
+                </div>
+              </button>
+          </div>
         {% endfor %}
     </div>
     <p>infinite scroll</p>
-    <p>hover to show caption, author, tags, post link, upload date, download button</p>
 </div>
 <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const buttons = document.querySelectorAll(".masonry-image-button");
+  
+    buttons.forEach(button => {
+      // Get the masonry-overlay-button
+      const overlayButton = button.nextElementSibling;
+      const internalButton = overlayButton.querySelector(".internal-button");
+    
+      if (internalButton) {
+        internalButton.addEventListener("click", (e) => {
+          // Stop the click event from propagating to the parent button
+          console.log("BEEP BEEP")
+          e.stopPropagation();
+        });
+      }
+  
+      // Click handler for masonry-image-button
+      button.addEventListener("click", () => {
+        const isExpanded = button.getAttribute("aria-expanded") === "true";
+  
+        // Toggle the aria-expanded attribute on the main button
+        button.setAttribute("aria-expanded", !isExpanded);
+  
+        // Show or hide the overlay depending on isExpanded
+        if (isExpanded) {
+          overlayButton.classList.add("d-none"); // Hide the overlay
+          overlayButton.setAttribute("aria-hidden", "true");
+        } else {
+          overlayButton.classList.remove("d-none"); // Show the overlay
+          overlayButton.setAttribute("aria-hidden", "false");
+        }
+      });
+  
+      // Click handler for masonry-image-overlay-button (the overlay button) to hide it
+      overlayButton.addEventListener("click", () => {
+        overlayButton.classList.add("d-none"); // Hide the overlay
+        overlayButton.setAttribute("aria-hidden", "true");
+  
+        // Optionally, reset the main button's aria-expanded to false if needed
+        button.setAttribute("aria-expanded", "false");
+      });
+    });
+  });
+  
 // Utility function to convert date to timestamp
 function toTimestamp(dateString) {
   return new Date(dateString).getTime(); // Converts to milliseconds
@@ -159,7 +252,6 @@ function areAllImagesLoaded(images) {
   const masonryInstance = new Masonry(grid, {
     itemSelector: ".masonry-item",
     columnWidth: ".masonry-item",
-    percentPosition: true
   });
 
   // Function to layout Masonry after all images are loaded
