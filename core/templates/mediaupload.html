@@ -3,8 +3,338 @@
 {% block title %}Upload Images{% endblock %}
 {% block content %}
 <div class="container pb-5 mt-3">
+    <h1 class="display-5 fw-bold mb-4">Upload Images</h1>
+    
+    <form id="uploadForm" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
 
-    <h1>Upload Media</h1>
-    <p>socks</p>
+        <!-- Drag and drop zone -->
+        <div class="upload-zone mb-4 p-5 rounded border-2 border-dashed d-flex flex-column align-items-center justify-content-center" 
+             id="dropZone" 
+             style="min-height: 200px; border-style: dashed;">
+            <i class="bi bi-cloud-arrow-up display-4 mb-2"></i>
+            <p class="mb-2">Drag and drop images here</p>
+            <p class="text-muted small mb-3">or</p>
+            <label class="btn btn-primary mb-0" for="fileInput">
+                Choose Files
+                <input type="file" 
+                       id="fileInput" 
+                       name="images" 
+                       multiple 
+                       accept="image/*" 
+                       class="d-none">
+            </label>
+            <p class="text-muted small mt-2">Supported formats: JPEG, PNG. Max size: 5MB per image.</p>
+        </div>
+
+        <!-- Common tags input -->
+        <div class="mt-4">
+            <label for="commonTags" class="form-label">Tags (separated by commas)</label>
+            <input 
+                type="text" 
+                class="form-control" 
+                id="commonTags" 
+                placeholder="Ex: vacation, Europe, travel"
+                aria-describedby="commonTagsHelp"
+            >
+            <div id="commonTagsHelp" class="form-text">
+                Tags help people find your images. These will be applied to all uploaded images. You can also add image-specific tags below each preview.
+            </div>
+        </div>
+
+        <!-- Preview area -->
+        <div id="previewArea" class="row g-3 mb-4 mt-4">
+            <!-- Previews will be inserted here -->
+        </div>
+
+        <!-- Submit button -->
+        <div id="submitArea" class="d-none">
+            <button type="submit" class="btn btn-primary">
+                Upload Images
+            </button>
+        </div>
+    </form>
 </div>
+
+<!-- Toast container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true" id="errorToast">
+        <div class="d-flex">
+            <div class="toast-body">
+                <!-- Toast message will be inserted here -->
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<style>
+.upload-zone {
+    transition: all 0.3s ease;
+    background-color: var(--bs-body-bg);
+    border-color: var(--bs-border-color);
+}
+
+.upload-zone.dragover {
+    background-color: var(--bs-primary-bg-subtle);
+    border-color: var(--bs-primary);
+}
+
+.preview-card {
+    position: relative;
+}
+
+.preview-card .image-container {
+    height: 200px;
+    overflow: hidden;
+    position: relative;
+}
+
+.preview-card .image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background-color: var(--bs-secondary-bg);
+    padding: 0.5rem;
+}
+
+.preview-card .remove-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(var(--bs-danger-rgb), 0.9);
+    border: none;
+    color: white;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.preview-card .remove-btn:hover {
+    background: var(--bs-danger);
+}
+
+/* Toast styles */
+.toast {
+    opacity: 1 !important;
+}
+</style>
+
+<script>
+function showToast(message, type = 'error') {
+    const toast = document.getElementById('errorToast');
+    const toastBody = toast.querySelector('.toast-body');
+    toastBody.textContent = message;
+    
+    const bsToast = new bootstrap.Toast(toast, {
+        animation: true,
+        autohide: true,
+        delay: 5000
+    });
+    
+    bsToast.show();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const previewArea = document.getElementById('previewArea');
+    const submitArea = document.getElementById('submitArea');
+    const uploadForm = document.getElementById('uploadForm');
+    const maxFileSize = 5 * 1024 * 1024; // 5MB in bytes
+    let files = new Set();
+    let hasUnsavedChanges = false;
+
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    // Highlight drop zone when dragging over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    // Handle dropped files
+    dropZone.addEventListener('drop', handleDrop, false);
+    
+    // Handle selected files
+    fileInput.addEventListener('change', (e) => {
+        handleFiles(Array.from(e.target.files));
+    });
+
+    // Track changes to common tags
+    document.getElementById('commonTags').addEventListener('input', () => {
+        hasUnsavedChanges = true;
+    });
+
+    // Handle form submission
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        const commonTags = document.getElementById('commonTags').value;
+        
+        // Add common tags
+        formData.append('common_tags', commonTags);
+        
+        // Add each file with its caption and tags
+        const previews = document.querySelectorAll('.preview-card');
+        previews.forEach((preview, index) => {
+            const file = Array.from(files)[index];
+            const caption = preview.querySelector('.image-caption').value;
+            const imageTags = preview.querySelector('.image-tags').value;
+            
+            formData.append(`images`, file);
+            formData.append(`captions`, caption);
+            formData.append(`image_tags`, imageTags);
+        });
+        
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        try {
+            const response = await fetch('{% url "media-upload" %}', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) throw new Error('Upload failed');
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                hasUnsavedChanges = false;  // Clear the flag before redirect
+                window.location.href = result.redirect;
+            } else {
+                showToast('Error uploading images', 'error');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Error uploading images', 'error');
+        }
+    });
+
+    function preventDefaults (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function highlight(e) {
+        dropZone.classList.add('dragover');
+    }
+
+    function unhighlight(e) {
+        dropZone.classList.remove('dragover');
+    }
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const droppedFiles = Array.from(dt.files);
+        handleFiles(droppedFiles);
+    }
+
+    function handleFiles(newFiles) {
+        newFiles.forEach(file => {
+            if (!file.type.startsWith('image/')) {
+                showToast(`${file.name} is not an image file`, 'error');
+                return;
+            }
+            if (file.size > maxFileSize) {
+                showToast(`${file.name} is too large (max 5MB)`, 'error');
+                return;
+            }
+            files.add(file);
+            addPreview(file);
+            hasUnsavedChanges = true;
+        });
+        
+        if (files.size > 0) {
+            submitArea.classList.remove('d-none');
+        } else {
+            submitArea.classList.add('d-none');
+            hasUnsavedChanges = false;
+        }
+    }
+
+    function addPreview(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const previewCard = document.createElement('div');
+            previewCard.className = 'col-12 col-md-6 col-lg-4';
+            previewCard.innerHTML = `
+                <div class="preview-card card">
+                    <div class="position-relative image-container">
+                        <img src="${e.target.result}" alt="Preview">
+                        <button type="button" class="remove-btn" aria-label="Remove image">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Caption</label>
+                            <textarea 
+                                class="form-control image-caption" 
+                                rows="2" 
+                                maxlength="200" 
+                                placeholder="Add a caption for this image"
+                            ></textarea>
+                            <div class="form-text">
+                                <span class="caption-length">0</span>/200 characters
+                            </div>
+                        </div>
+                        <div>
+                            <label class="form-label">Additional tags (separated by commas)</label>
+                            <input 
+                                type="text" 
+                                class="form-control image-tags" 
+                                placeholder="Ex: beach, rocks, ocean"
+                            >
+                            <div class="form-text">
+                                These tags will apply only to this image.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add character counter for caption
+            const captionField = previewCard.querySelector('.image-caption');
+            const captionLength = previewCard.querySelector('.caption-length');
+            captionField.addEventListener('input', () => {
+                captionLength.textContent = captionField.value.length;
+            });
+
+            // Handle remove button
+            const removeBtn = previewCard.querySelector('.remove-btn');
+            removeBtn.addEventListener('click', () => {
+                files.delete(file);
+                previewCard.remove();
+                if (files.size === 0) {
+                    submitArea.classList.add('d-none');
+                }
+            });
+
+            previewArea.appendChild(previewCard);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // Add page leave warning
+    window.addEventListener('beforeunload', (e) => {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+});
+</script>
 {% endblock %}

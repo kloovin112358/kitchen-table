@@ -7,9 +7,29 @@
     {% if posts %}
         <section>
             <h1 class="visually-hidden">View posts</h1>
-            <div class="d-flex pt-2 pt-lg-3">
-                <input class="form-control flex-grow-1 me-2" placeholder="Search for posts" name="search" value="{{search}}">
-                <button class="btn outline-button" type="submit">Search</button>
+            <div class="row g-2 pt-2 pt-lg-3">
+                <div class="col-lg">
+                    <select 
+                        class="form-select" 
+                        name="category" 
+                        onchange="this.form.submit()"
+                        aria-label="Filter by category"
+                    >
+                        <option value="">All categories</option>
+                        {% for category in categories %}
+                            <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>
+                                {{ category.category }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-lg">
+                    <div class="d-flex">
+                        <input class="form-control flex-grow-1 me-2" placeholder="Search for posts" name="search" value="{{search}}">
+                        <button class="btn outline-button" type="submit">Search</button>
+                    </div>
+                </div>
+                
             </div>
             <div class="d-flex flex-wrap justify-content-between pt-2 pb-3 align-items-center">
                 <div class="form-check form-switch">

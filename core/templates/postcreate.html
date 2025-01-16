@@ -45,7 +45,7 @@
                 {% endfor %}
             </select> -->
             {% if form.category.errors %}
-                <div class="invalid-feedback">
+                <div class="invalid-feedback" style="display:block!important;">
                     {% for error in form.category.errors %}
                         <p>{{ error }}</p>
                     {% endfor %}
@@ -68,7 +68,7 @@
                 "
               /> -->
             {% if form.title.errors %}
-            <div class="invalid-feedback">
+            <div class="invalid-feedback" style="display:block!important;">
                 {% for error in form.title.errors %}
                 <p>{{ error }}</p>
                 {% endfor %}
@@ -213,77 +213,84 @@ if (isFormDirty) {
 });
 
 function customFilePicker(callback, value, meta) {
-    
-    if (!postEntryInstID) {
-        //const toast = document.getElementById('liveToast');
-        //const toastInstance = bootstrap.Toast.getInstance(toast) || new bootstrap.Toast(toast);
-        //toastInstance.show();
-        fetch('{% url "create-dummy-post-instance" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}',  // Django template tag for CSRF token
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.entry_id) {
-                postEntryInstID = data.entry_id
-                const postForm = document.getElementById("postForm");
-                if (postForm) {
-                    postForm.action = "{% url 'post-edit' '0' %}".replace('0', postEntryInstID);
+    // Create a Promise to handle the dummy post creation
+    const ensurePostInstance = async () => {
+        if (!postEntryInstID) {
+            try {
+                const response = await fetch('{% url "create-dummy-post-instance" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                });
+                const data = await response.json();
+                
+                if (data.entry_id) {
+                    postEntryInstID = data.entry_id;
+                    const postForm = document.getElementById("postForm");
+                    if (postForm) {
+                        postForm.action = "{% url 'post-edit' '0' %}".replace('0', postEntryInstID);
+                        // Add hidden input for preset_post_id
+                        const hiddenInput = document.createElement('input');
+                        hiddenInput.type = 'hidden';
+                        hiddenInput.name = 'preset_post_id';
+                        hiddenInput.value = postEntryInstID;
+                        postForm.appendChild(hiddenInput);
+                    }
+                    return true;
+                } else {
+                    throw new Error('No entry ID received');
                 }
-            } else {
-                console.error('Error creating instance');
-                alert("Error: no entry id found.")
-                return false
+            } catch (error) {
+                console.error('Error creating instance:', error);
+                alert('Error: Unable to prepare for image upload. Please save your post as draft first.');
+                return false;
             }
-        })
-        .catch(error => {
-            console.error('Error creating instance:', error);
-            alert('Error creating instance.');
-            return false
-        });
-    }
-
-    let input = document.createElement('input');
-    input.setAttribute('type', 'file');
-    input.setAttribute('accept', 'image/*'); // Restrict to images only
-
-    input.onchange = function () {
-        let file = this.files[0];
-
-        // Use FormData to send the file to the server
-        let formData = new FormData();
-        formData.append('file', file);
-        if (postEntryInstID) {
-            formData.append('post_entry_id', postEntryInstID);
         }
-
-        fetch('{% url "image-upload" %}', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.location) {
-                // Pass the file URL back to TinyMCE
-                callback(data.location);
-            } else if (data.error) {
-                alert(data.error); // Display error message
-            }
-        })
-        .catch(error => {
-            console.error('Error uploading file:', error);
-            alert('Error uploading image.');
-        });
+        return true;
     };
 
-    input.click();
+    // Main file picker logic
+    const handleFilePicker = async () => {
+        const ready = await ensurePostInstance();
+        if (!ready) return;
 
+        let input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');
+
+        input.onchange = function () {
+            let file = this.files[0];
+            let formData = new FormData();
+            formData.append('file', file);
+            formData.append('post_entry_id', postEntryInstID);
+
+            fetch('{% url "image-upload" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.location) {
+                    callback(data.location);
+                } else if (data.error) {
+                    alert(data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error uploading file:', error);
+                alert('Error uploading image.');
+            });
+        };
+
+        input.click();
+    };
+
+    handleFilePicker();
 }
 </script>
 {% endblock %}

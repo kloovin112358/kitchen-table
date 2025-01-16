@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, TemplateView
 from django.urls import reverse_lazy
-from .models import PostEntry, ImageUpload, Favorite
+from .models import PostEntry, ImageUpload, Favorite, PostCategory
 from django.contrib.auth.views import LoginView
 from django.views.generic.edit import FormView
 from django.contrib.auth import login
@@ -47,6 +47,7 @@ class HomeView(LoginRequiredMixin, ListView):
         favorites_only = self.request.GET.get('favorites_only', 'false').lower() == 'on'
         sort_by = self.request.GET.get('sort_by', 'latest')  # Default to 'new'
         search = self.request.GET.get('search', '').strip()  # Get the search query
+        category = self.request.GET.get('category', '')
         
         # Filter for favorites only if specified
         if favorites_only:
@@ -55,7 +56,7 @@ class HomeView(LoginRequiredMixin, ListView):
         # Filter by search string (title or tags)
         if search:
             queryset = queryset.filter(
-                Q(title__icontains=search) | Q(tags__name__icontains=search)
+                Q(title__icontains=search) | Q(post_body__icontains=search) | Q(tags__name__icontains=search)
             ).distinct()
 
         # Apply sorting
@@ -71,6 +72,10 @@ class HomeView(LoginRequiredMixin, ListView):
         #     to_attr='prefetched_images'  # Attribute to store prefetched images
         # )
         queryset = queryset.annotate(is_favorite=Exists(favorite_status))
+
+        if category:
+            queryset = queryset.filter(category=category)
+
         return queryset
         return queryset.prefetch_related(image_prefetch)
 
@@ -80,6 +85,8 @@ class HomeView(LoginRequiredMixin, ListView):
         context['favorites_only'] = self.request.GET.get('favorites_only', 'false')
         context['sort_by'] = self.request.GET.get('sort_by', 'latest')
         context['search'] = self.request.GET.get('search', '')
+        context['selected_category'] = self.request.GET.get('category', '')
+        context['categories'] = PostCategory.objects.all()
         return context
 
 class LoginView(LoginView):
@@ -115,9 +122,43 @@ class SignUpView(FormView):
 
 @login_required
 def MediaUpload(request):
-    return render(request, "mediaupload.html", {
+    if request.method == 'POST':
+        uploaded_files = request.FILES.getlist('images')
+        captions = request.POST.getlist('captions')
+        image_tags = request.POST.getlist('image_tags')
+        common_tags = request.POST.get('common_tags', '')
         
-    })
+        try:
+            count = 0
+            # Process common tags
+            common_tag_list = [tag.strip() for tag in common_tags.split(',') if tag.strip()]
+            
+            for i, image in enumerate(uploaded_files):
+                # Create image
+                upload = ImageUpload.objects.create(
+                    uploaded_by=request.user,
+                    uploaded_image=image,
+                    caption=captions[i] if i < len(captions) else ''
+                )
+                
+                # Add common tags
+                for tag in common_tag_list:
+                    upload.tags.add(tag)
+                
+                # Add image-specific tags
+                if i < len(image_tags):
+                    image_specific_tags = [tag.strip() for tag in image_tags[i].split(',') if tag.strip()]
+                    for tag in image_specific_tags:
+                        upload.tags.add(tag)
+                
+                count += 1
+            
+            messages.success(request, f"Successfully uploaded {count} image{'s' if count != 1 else ''}!")
+            return JsonResponse({'status': 'success', 'redirect': reverse('gallery')})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+            
+    return render(request, "mediaupload.html")
 
 @login_required
 def MyAccount(request):
@@ -161,7 +202,7 @@ def MyAccount(request):
     favorite_images = Favorite.objects.filter(
         user=user,
         image_upload__isnull=False
-    ).select_related('image_upload')[:3]
+    ).order_by('-id').select_related('image_upload')[:3]
     
     remaining_favorite_images = max(0, total_favorite_images - 3)
 
@@ -387,6 +428,14 @@ class PostEntryUpdateView(LoginRequiredMixin, PostEntryBaseView, UpdateView):
     form_class = PostEntryForm
     template_name = 'postcreate.html'  # Replace with your actual template path
     success_url = reverse_lazy('home')  # Redirect after success (e.g., to a list of posts)
+    
+    def get(self, request, *args, **kwargs):
+        # Call parent get() first to set self.object
+        response = super().get(request, *args, **kwargs)
+        # Print post body of the instance being updated
+        print(f"Post body for post {self.object.id}:")
+        print(self.object.post_body)
+        return response
 
     def get_queryset(self):
         # Ensure the user can only edit their own posts (optional, but a good practice)

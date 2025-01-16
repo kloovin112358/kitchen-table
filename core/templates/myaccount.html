@@ -95,7 +95,7 @@
                 {% endfor %}
                 {% if remaining_favorite_posts > 0 %}
                     <a href="{% url 'home' %}?favorites_only=on" class="list-group-item list-group-item-action favorite-text">
-                       + {{remaining_favorite_posts}} more favorite post{% if remaining_favorite_posts > 1 %}s{% endif %} (view)
+                       +{{remaining_favorite_posts}} more favorite post{% if remaining_favorite_posts > 1 %}s{% endif %} (view)
                     </a>
                 {% endif %}
             </div>
