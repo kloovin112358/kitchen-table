@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, TemplateView
 from django.urls import reverse_lazy
 from .models import PostEntry, ImageUpload, Favorite
 from django.contrib.auth.views import LoginView
@@ -22,6 +22,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.db.models import Prefetch, Q, OuterRef, Exists, Min, Max
 from urllib.parse import urlparse
+from django.core.paginator import Paginator
 
 class HomeView(LoginRequiredMixin, ListView):
     model = PostEntry  # Replace with your model
@@ -188,56 +189,11 @@ def CreateDummyPostInstance(request):
     newPostEntry.save()
     return JsonResponse({"entry_id": newPostEntry.id}, status=201)
 
-class Gallery(LoginRequiredMixin, ListView):
-    model = ImageUpload  # Replace with your model
-    template_name = 'gallery.html'  # Path to your template
-    context_object_name = 'photos'  # Name to access objects in the template
-    paginate_by = 10  # Number of items per page
-    login_url = reverse_lazy('log-in')  # Redirect to login if not authenticated
-
-    def get_queryset(self):
-        # Base queryset
-        queryset = ImageUpload.objects.filter(
-            Q(related_post_entry__isnull=True) | 
-            Q(related_post_entry__status="Live")
-        )
-
-        favorite_status = Favorite.objects.filter(
-            user=self.request.user, 
-            image_upload=OuterRef('pk')
-        )
-
-        # Handle query parameters with snake_case
-        favorites_only = self.request.GET.get('favorites_only', 'false').lower() == 'on'
-        sort_by = self.request.GET.get('sort_by', 'latest')  # Default to 'new'
-        search = self.request.GET.get('search', '').strip()  # Get the search query
-        
-        # Filter for favorites only if specified
-        if favorites_only:
-            queryset = queryset.filter(Exists(favorite_status))
-        
-        # Filter by search string (title or tags)
-        if search:
-            queryset = queryset.filter(
-                Q(caption__icontains=search) | Q(tags__name__icontains=search)
-            ).distinct()
-
-        # Apply sorting
-        if sort_by == 'latest':
-            queryset = queryset.order_by('-uploaded_at')  # Newest first
-        elif sort_by == 'oldest':
-            queryset = queryset.order_by('uploaded_at')  # Oldest first
-
-        queryset = queryset.annotate(is_favorite=Exists(favorite_status))
-        return queryset
-
+class GalleryTemplateView(LoginRequiredMixin, TemplateView):
+    template_name = 'gallery.html'
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Add query parameters to the context for template usage
-        context['favorites_only'] = self.request.GET.get('favorites_only', 'false')
-        context['sort_by'] = self.request.GET.get('sort_by', 'latest')
-        context['search'] = self.request.GET.get('search', '')
-
         filtered_queryset = ImageUpload.objects.filter(
             Q(related_post_entry__isnull=True) | 
             Q(related_post_entry__status="Live")
@@ -251,11 +207,84 @@ class Gallery(LoginRequiredMixin, ListView):
 
         context['min_date'] = date_range['min_date']
         context['max_date'] = date_range['max_date']
-
         context['users'] = CustomUser.objects.all()
         return context
 
+class GalleryAjaxView(LoginRequiredMixin, View):
+    def get(self, request):
+        # Base queryset
+        queryset = ImageUpload.objects.filter(
+            Q(related_post_entry__isnull=True) | 
+            Q(related_post_entry__status="Live")
+        )
 
+        favorite_status = Favorite.objects.filter(
+            user=request.user, 
+            image_upload=OuterRef('pk')
+        )
+
+        # Handle query parameters
+        favorites_only = request.GET.get('favorites_only', 'false').lower() == 'on'
+        sort_by = request.GET.get('sort_by', 'latest')
+        search = request.GET.get('search', '').strip()
+        page = int(request.GET.get('page', 1))
+        
+        if favorites_only:
+            queryset = queryset.filter(Exists(favorite_status))
+        
+        if search:
+            queryset = queryset.filter(
+                Q(caption__icontains=search) | Q(tags__name__icontains=search)
+            ).distinct()
+
+        if sort_by == 'latest':
+            queryset = queryset.order_by('-uploaded_at')
+        elif sort_by == 'oldest':
+            queryset = queryset.order_by('uploaded_at')
+
+        # Add date range filtering
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        if start_date and end_date:
+            queryset = queryset.filter(
+                uploaded_at__range=[start_date, end_date]
+            )
+
+        queryset = queryset.annotate(is_favorite=Exists(favorite_status))
+
+        # Add users filter
+        users = request.GET.get('users')
+        if users:
+            user_ids = [int(uid) for uid in users.split(',')]
+            queryset = queryset.filter(uploaded_by_id__in=user_ids)
+
+        # Paginate the results
+        paginator = Paginator(queryset, 10)
+        page_obj = paginator.get_page(page)
+
+        # Prepare the data for JSON response
+        photos_data = []
+        for photo in page_obj:
+            photos_data.append({
+                'id': photo.id,
+                'image_url': photo.uploaded_image.url,
+                'caption': photo.caption,
+                'uploaded_by': photo.uploaded_by.get_full_name(),
+                'uploaded_by_id': photo.uploaded_by.id,
+                'uploaded_at': photo.uploaded_at.strftime('%b %d, %Y'),
+                'is_favorite': photo.is_favorite,
+                'tags': [{'name': tag.name} for tag in photo.tags.all()],
+                'related_post_entry': {
+                    'id': photo.related_post_entry.id,
+                    'url': reverse('post-view', kwargs={'pk': photo.related_post_entry.id})
+                } if photo.related_post_entry else None
+            })
+
+        return JsonResponse({
+            'photos': photos_data,
+            'has_next': page_obj.has_next(),
+            'next_page': page + 1 if page_obj.has_next() else None,
+        })
 
 def PasswordReset(request):
     return render(request, "passwordreset.html")
@@ -406,3 +435,12 @@ def ViewPost(request, pk):
             "referrer_link": referrer_link,
             "is_favorite": Favorite.objects.filter(post_entry=post, user=request.user).exists()
         })
+
+class ImageDeleteView(LoginRequiredMixin, View):
+    def post(self, request, image_id):
+        try:
+            image = ImageUpload.objects.get(id=image_id, uploaded_by=request.user)
+            image.delete()
+            return JsonResponse({'status': 'success'})
+        except ImageUpload.DoesNotExist:
+            return JsonResponse({'error': 'Image not found or permission denied'}, status=404)

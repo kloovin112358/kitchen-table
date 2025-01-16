@@ -27,24 +27,18 @@
 />
 <style>
   .noUi-connect {
-    background: #0d6efd!important;
+    background: #6ea8fe!important;
 }
 .masonry-overlay {
-  background: rgba(0, 0, 0, 0.6); 
+  background: rgba(0, 0, 0, 0.8); 
   border-radius: 15px;
-  height:calc(100% - 0.5rem);
-  width:calc(100% - 0.5rem)
-}
-@media (min-width: 992px) { /* lg breakpoint */
-  .masonry-overlay {
-    height: calc(100% - 1rem); /* Adjust for larger margin */
-    width: calc(100% - 1rem);
-  }
+  height:100%;
+  width:100%;
 }
 </style>
 <script src="{% static 'nouislider.min.js' %}"></script>
+<script src="{% static 'fslightbox.js' %}"></script>
 <div class="container pb-5 mt-3">
-  <form method="GET">
     <div class="accordion" id="accordionExample">
       <div class="accordion-item">
         <h2 class="accordion-header">
@@ -54,6 +48,8 @@
         </h2>
         <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
           <div class="accordion-body">
+            <!-- TODO - make this label accessible to sceen readers -->
+            <label id="date-range-label" class="form-label">Filter by photo upload date</label>
             <div class="mt-5 px-4 px-lg-5 mb-3 mb-lg-0">
               <div id="slider"></div>
             </div>
@@ -75,8 +71,8 @@
                 
                 <!-- <button class="btn outline-button btn-sm" type="submit">Search</button> -->
             </div>
-            <button class="btn btn-primary">Apply Filters</button>
-            <button class="btn btn-secondary">Clear Filters</button>
+            <button class="btn btn-primary" id="applyFilters">Apply Filters</button>
+            <button class="btn btn-secondary" id="clearFilters">Clear Filters</button>
             
           </div>
         </div>
@@ -90,8 +86,6 @@
               role="switch" 
               name="favorites_only"
               id="flexSwitchCheckDefault" 
-              {% if favorites_only == "on" %}checked{% endif %}
-              onchange="this.form.submit()"
           >
           <label class="form-check-label" for="flexSwitchCheckDefault" name="favorites_only">Favorites only</label>
         </div>
@@ -100,174 +94,431 @@
               <label for="sortBy">Sort by:</label>
           </div>
           <div class="col-auto ps-0">
-              <select class="form-select form-select-sm" id="sortBy" name="sort_by" onchange="this.form.submit()">
-                  <option value="latest" {% if sort_by == "latest" %}selected{% endif %}>Latest</option>
-                  <option value="oldest" {% if sort_by == "oldest" %}selected{% endif %}>Oldest</option>
+              <select class="form-select form-select-sm" id="sortBy" name="sort_by">
+                  <option value="latest" selected>Latest</option>
+                  <option value="oldest">Oldest</option>
               </select>
           </div>
       </div>
   </div>
-</form>
     <div id="photoGrid">
-        {% for photo in photos %}
-          <div class="masonry-item">
-            <button style="background: none;border:none;padding:0;" class="m-1 m-lg-2 masonry-image-button" aria-expanded="false" aria-controls="masonry-content-{{forloop.counter}}">
-                <img 
-                    src="{{photo.uploaded_image.url}}"
-                    style="border-radius:15px;width:100%;height:100%;"
-                    class="masonry-item-image"
-                    loading="lazy"
-                >
-              </img>
-            </button>
-            <button 
-                id="masonry-content-{{forloop.counter}}"
-                class="masonry-overlay masonry-image-overlay-button d-none position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center"
-                role="region"
-                aria-hidden="true"
-              >
-                <div class="masonry-overlay-content text-white p-3">
-                  {% if photo.caption %}
-                  <p class="fst-italic">
-                    "{{photo.caption}}"
-                  </p>  
-                  {% endif %}
-                  <p>
-                    Uploaded by {{photo.uploaded_by.get_full_name}} on {{photo.uploaded_at|date}}
-                  </p>
-                  {% if photo.related_post_entry %}
-                    <a href="{% url 'post-view' photo.related_post_entry.id %}" class="btn btn-primary btn-sm rounded-corners internal-button" target="_blank" rel="noreferrer noopener">
-                      View Post <i class="bi bi-box-arrow-up-right"></i>
-                    </a>
-                  {% endif %}
-                  {% if photo.tags.all.exists %}
-                  <div class="fs-6 d-flex flex-wrap gap-1 justify-content-center mb-3">
-                    {% for tag in photo.tags.all %}
-                        <span class="badge bg-light text-dark rounded-pill px-2">{{tag.name}}</span>
-                    {% endfor %}
-                  </div>
-                  {% endif %}
-                  <!-- <button class="btn btn-sm btn-secondary internal-button"><i class="bi bi-cloud-download"></i> Download</button> -->
-                   <!-- {% if request.user == photo.uploaded_by %}
-                   <button class="btn btn-sm btn-danger internal-button"><i class="bi bi-trash3"></i> Delete</button>
-                   {% endif %} -->
-                </div>
-              </button>
-          </div>
-        {% endfor %}
+        <!-- Photos will be loaded here via JavaScript -->
     </div>
-    <p>infinite scroll</p>
+    <div id="loading-spinner" class="text-center d-none my-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
 </div>
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const buttons = document.querySelectorAll(".masonry-image-button");
-  
-    buttons.forEach(button => {
-      // Get the masonry-overlay-button
-      const overlayButton = button.nextElementSibling;
-      const internalButton = overlayButton.querySelector(".internal-button");
-    
-      if (internalButton) {
-        internalButton.addEventListener("click", (e) => {
-          // Stop the click event from propagating to the parent button
-          console.log("BEEP BEEP")
-          e.stopPropagation();
-        });
-      }
-  
-      // Click handler for masonry-image-button
-      button.addEventListener("click", () => {
-        const isExpanded = button.getAttribute("aria-expanded") === "true";
-  
-        // Toggle the aria-expanded attribute on the main button
-        button.setAttribute("aria-expanded", !isExpanded);
-  
-        // Show or hide the overlay depending on isExpanded
-        if (isExpanded) {
-          overlayButton.classList.add("d-none"); // Hide the overlay
-          overlayButton.setAttribute("aria-hidden", "true");
-        } else {
-          overlayButton.classList.remove("d-none"); // Show the overlay
-          overlayButton.setAttribute("aria-hidden", "false");
-        }
-      });
-  
-      // Click handler for masonry-image-overlay-button (the overlay button) to hide it
-      overlayButton.addEventListener("click", () => {
-        overlayButton.classList.add("d-none"); // Hide the overlay
-        overlayButton.setAttribute("aria-hidden", "true");
-  
-        // Optionally, reset the main button's aria-expanded to false if needed
-        button.setAttribute("aria-expanded", "false");
-      });
-    });
-  });
-  
+let currentPage = 1;
+let loading = false;
+let hasMore = true;
+let masonryInstance;
+
 // Utility function to convert date to timestamp
 function toTimestamp(dateString) {
-  return new Date(dateString).getTime(); // Converts to milliseconds
+    const date = new Date(dateString);
+    // Set the time to noon UTC to avoid timezone issues
+    date.setUTCHours(12, 0, 0, 0);
+    return date.getTime();
 }
 
 // Utility function to format timestamps for the tooltip
 function formatDate(timestamp) {
-  const date = new Date(timestamp);
-  console.log(date)
-  return date.toLocaleDateString(); // Adjust locale as needed
+    const date = new Date(timestamp);
+    // Use UTC methods to avoid timezone shifts
+    return new Date(date.getTime() + (date.getTimezoneOffset() * 60000))
+        .toLocaleDateString();
 }
 
-// Access the min_date and max_date passed to the template
-const minDate = "{{ min_date|date:'Y-m-d' }}"; // 'Y-m-d' formats the date as 'YYYY-MM-DD'
+// Get the date range from Django context
+const minDate = "{{ min_date|date:'Y-m-d' }}";
 const maxDate = "{{ max_date|date:'Y-m-d' }}";
 
-// Create the slider
-noUiSlider.create(slider, {
-  start: [toTimestamp(minDate), toTimestamp(maxDate)], // Slider starts at min and max dates
-  connect: true,
-  range: {
-      min: toTimestamp(minDate), // Minimum date as timestamp
-      max: toTimestamp(maxDate)  // Maximum date as timestamp
-  },
-  step: 24 * 60 * 60 * 1000, // Step size: 1 day in milliseconds
-  tooltips: [
-      {
-          to: formatDate, // Format the tooltip as a date
-          from: Number // Convert tooltip back to timestamp
-      },
-      {
-          to: formatDate,
-          from: Number
-      }
-  ]
-});
-// Function to check if all images are loaded
-function areAllImagesLoaded(images) {
-    return Array.from(images).every(img => img.complete && img.naturalHeight !== 0);
-  }
+document.addEventListener("DOMContentLoaded", () => {
+    // Initialize Masonry
+    const grid = document.querySelector("#photoGrid");
+    masonryInstance = new Masonry(grid, {
+        itemSelector: ".masonry-item",
+        columnWidth: ".masonry-item",
+        percentPosition: true,
+        transitionDuration: 0
+    });
 
-  // Get the photo grid and masonry items
-  const grid = document.querySelector("#photoGrid");
-  const items = grid.querySelectorAll(".masonry-item");
+    // Set up initial load and scroll handler
+    loadPhotos(1);
+    window.addEventListener('scroll', handleScroll);
 
-  // Initialize Masonry
-  const masonryInstance = new Masonry(grid, {
-    itemSelector: ".masonry-item",
-    columnWidth: ".masonry-item",
-  });
+    // Set up instant-apply filter handlers
+    document.querySelectorAll('#flexSwitchCheckDefault, #sortBy').forEach(element => {
+        element.addEventListener('change', () => {
+            currentPage = 1;
+            hasMore = true;
+            const photoGrid = document.getElementById('photoGrid');
+            photoGrid.innerHTML = '';
+            document.getElementById('loading-spinner').classList.add('d-none');
+            loadPhotos(1);
+        });
+    });
 
-  // Function to layout Masonry after all images are loaded
-  function layoutMasonryAfterImagesLoaded() {
-    const images = grid.querySelectorAll("img");
+    // Set up filter buttons
+    document.getElementById('applyFilters').addEventListener('click', (e) => {
+        e.preventDefault();
+        currentPage = 1;
+        hasMore = true;
+        const photoGrid = document.getElementById('photoGrid');
+        photoGrid.innerHTML = '';
+        document.getElementById('loading-spinner').classList.add('d-none');
+        loadPhotos(1);
+    });
 
-    // Check if all images are loaded
-    if (areAllImagesLoaded(images)) {
-      masonryInstance.layout();
-    } else {
-      // If images are not loaded, retry after a short delay
-      setTimeout(layoutMasonryAfterImagesLoaded, 100);
+    document.getElementById('clearFilters').addEventListener('click', (e) => {
+        e.preventDefault();
+        // Reset the slider
+        const slider = document.getElementById('slider');
+        if (slider && slider.noUiSlider) {
+            slider.noUiSlider.set([toTimestamp(minDate), toTimestamp(maxDate)]);
+        }
+        // Reset the search input
+        document.getElementById('searchQuery').value = '';
+        // Reset the users select
+        document.getElementById('usersFilter').selectedIndex = -1;
+        
+        // Reload the photos
+        currentPage = 1;
+        hasMore = true;
+        const photoGrid = document.getElementById('photoGrid');
+        photoGrid.innerHTML = '';
+        document.getElementById('loading-spinner').classList.add('d-none');
+        loadPhotos(1);
+    });
+
+    // Set up form handlers
+    document.querySelectorAll('form select:not(#sortBy), form input:not(#flexSwitchCheckDefault)').forEach(element => {
+        element.addEventListener('change', () => {
+            currentPage = 1;
+            hasMore = true;
+            const photoGrid = document.getElementById('photoGrid');
+            photoGrid.innerHTML = '';
+            document.getElementById('loading-spinner').classList.add('d-none');
+            loadPhotos(1);
+        });
+    });
+
+    // Set up overlay handlers
+    setupOverlayHandlers();
+
+    // Create the slider
+    const slider = document.getElementById('slider');
+    if (slider) {
+        noUiSlider.create(slider, {
+            start: [toTimestamp(minDate), toTimestamp(maxDate)],
+            connect: true,
+            range: {
+                min: toTimestamp(minDate),
+                max: toTimestamp(maxDate)
+            },
+            step: 24 * 60 * 60 * 1000, // Step size: 1 day in milliseconds
+            tooltips: [
+                {
+                    to: formatDate,
+                    from: Number
+                },
+                {
+                    to: formatDate,
+                    from: Number
+                }
+            ]
+        });
+
+        // Add slider event listener
+        slider.noUiSlider.on('change', () => {
+            currentPage = 1;
+            hasMore = true;
+            const photoGrid = document.getElementById('photoGrid');
+            photoGrid.innerHTML = '';
+            document.getElementById('loading-spinner').classList.add('d-none');
+            loadPhotos(1);
+        });
     }
-  }
+});
 
-  // Ensure Masonry layout is triggered once images are loaded
-  layoutMasonryAfterImagesLoaded();
+function loadPhotos(page) {
+    if (loading || !hasMore) return Promise.resolve();
+    
+    loading = true;
+    document.getElementById('loading-spinner').classList.remove('d-none');
+    
+    const url = new URL(`${window.location.origin}/gallery/ajax/`);
+    url.searchParams.set('page', page);
+    
+    // Always apply these filters (instant apply)
+    const favoritesOnly = document.getElementById('flexSwitchCheckDefault').checked;
+    const sortBy = document.getElementById('sortBy').value;
+    url.searchParams.set('favorites_only', favoritesOnly ? 'on' : 'false');
+    url.searchParams.set('sort_by', sortBy);
+
+    // Only apply these filters if they have values (button apply)
+    const searchQuery = document.getElementById('searchQuery').value;
+    if (searchQuery.trim()) {
+        url.searchParams.set('search', searchQuery);
+    }
+
+    const selectedUsers = Array.from(document.getElementById('usersFilter').selectedOptions)
+        .map(option => option.value);
+    if (selectedUsers.length > 0) {
+        url.searchParams.set('users', selectedUsers.join(','));
+    }
+
+    // Add date range parameters if slider exists and isn't at default values
+    const slider = document.getElementById('slider');
+    if (slider && slider.noUiSlider) {
+        const [startDate, endDate] = slider.noUiSlider.get();
+        const defaultStart = toTimestamp(minDate);
+        const defaultEnd = toTimestamp(maxDate);
+        
+        if (parseInt(startDate) !== defaultStart || parseInt(endDate) !== defaultEnd) {
+            url.searchParams.set('start_date', new Date(parseInt(startDate)).toISOString());
+            url.searchParams.set('end_date', new Date(parseInt(endDate)).toISOString());
+        }
+    }
+    
+    return fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const photoGrid = document.getElementById('photoGrid');
+            
+            data.photos.forEach(photo => {
+                const photoHtml = createPhotoElement(photo);
+                photoGrid.insertAdjacentHTML('beforeend', photoHtml);
+            });
+            
+            // Setup overlay handlers for new photos
+            setupOverlayHandlers();
+            
+            const newImages = Array.from(photoGrid.querySelectorAll('.masonry-item-image'));
+            const imageLoadPromises = newImages.map(img => {
+                if (img.complete) return Promise.resolve();
+                return new Promise(resolve => {
+                    img.onload = resolve;
+                    img.onerror = resolve;
+                });
+            });
+
+            return Promise.all(imageLoadPromises).then(() => {
+                masonryInstance.reloadItems();
+                masonryInstance.layout();
+                
+                hasMore = data.has_next;
+                currentPage = page;
+                loading = false;
+                document.getElementById('loading-spinner').classList.add('d-none');
+
+                if (!hasMore) {
+                    window.removeEventListener('scroll', handleScroll);
+                    console.log('Removed scroll listener - no more pages');
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading photos:', error);
+            loading = false;
+            document.getElementById('loading-spinner').classList.add('d-none');
+        });
+}
+
+function createPhotoElement(photo) {
+    const currentUserId = "{{ request.user.id }}"; // Add this at top of template, outside any functions
+    
+    return `        <div class="masonry-item" id="photo-${photo.id}">
+            <article class="image-card position-relative m-1 m-lg-2">
+                <img 
+                    src="${photo.image_url}"
+                    alt="${photo.caption || 'Uploaded image'}"
+                    style="border-radius:15px;width:100%;height:100%;"
+                    class="masonry-item-image"
+                    loading="lazy"
+                >
+                <button 
+                    class="btn btn-light btn-sm position-absolute top-0 end-0 m-2 toggle-overlay-btn rounded-corners opacity-50"
+                    style="z-index:1000;"
+                    aria-expanded="false"
+                    aria-controls="overlay-${photo.id}"
+                    aria-label="Toggle image details"
+                >
+                    <i class="bi bi-info-circle"></i>
+                </button>
+                <button 
+                    class="btn btn-light btn-sm position-absolute top-0 end-0 m-2 mt-5 rounded-corners opacity-50 toggle-fullscreen-btn"
+                    style="z-index:1000;"
+                    aria-expanded="false"
+                    aria-label="Toggle fullscreen"
+                >
+                    <i class="bi bi-fullscreen"></i>
+                </button>
+                
+                <div 
+                    id="overlay-${photo.id}"
+                    class="masonry-overlay d-none position-absolute top-50 start-50 translate-middle"
+                    role="region"
+                    aria-label="Image details"
+                    aria-hidden="true"
+                >
+                    <div class="masonry-overlay-content text-white p-3 d-flex flex-column justify-content-center align-items-center h-100">
+                        ${photo.caption ? `<p class="fst-italic">"${photo.caption}"</p>` : ''}
+                        <p class="small">Uploaded by ${photo.uploaded_by} on ${photo.uploaded_at}</p>
+                        
+                        <div class="d-flex gap-2 justify-content-center mb-3 flex-wrap">
+                            <a 
+                                href="${photo.image_url}" 
+                                download
+                                class="btn btn-light btn-sm"
+                                aria-label="Download image"
+                            >
+                                <i class="bi bi-download"></i> Download
+                            </a>
+
+                            <button 
+                                class="btn btn-outline-info btn-sm"
+                                aria-label="Favorite image"
+                            >
+                                <i class="bi bi-star"></i> Favorite
+                            </button>
+                            
+                            ${photo.related_post_entry ? `
+                                <a 
+                                    href="${photo.related_post_entry.url}" 
+                                    class="btn btn-primary btn-sm"
+                                    target="_blank" 
+                                    rel="noreferrer noopener"
+                                    aria-label="View related post"
+                                >
+                                    <i class="bi bi-box-arrow-up-right"></i> View Post
+                                </a>
+                            ` : ''}
+                            
+                            ${photo.uploaded_by_id === parseInt(currentUserId) ? `
+                                <button 
+                                    class="btn btn-danger btn-sm delete-image-btn"
+                                    data-image-id="${photo.id}"
+                                    aria-label="Delete image"
+                                >
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            ` : ''}
+                        </div>
+
+                        ${photo.tags && photo.tags.length > 0 ? `
+                            <div class="fs-6 d-flex flex-wrap gap-1 justify-content-center">
+                                ${photo.tags.map(tag => `
+                                    <span class="badge bg-light text-dark rounded-pill px-2">${tag.name}</span>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </article>
+        </div>
+    `;
+}
+
+function setupOverlayHandlers() {
+    // Remove any existing handlers first
+    document.querySelectorAll('.toggle-overlay-btn').forEach(btn => {
+        if (btn.dataset.initialized) return;
+        btn.dataset.initialized = 'true';
+        
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Close any other open overlays
+            document.querySelectorAll('.toggle-overlay-btn[aria-expanded="true"]').forEach(otherBtn => {
+                if (otherBtn !== btn) {
+                    const overlayId = otherBtn.getAttribute('aria-controls');
+                    const overlay = document.getElementById(overlayId);
+                    otherBtn.setAttribute('aria-expanded', 'false');
+                    overlay.classList.add('d-none');
+                    overlay.setAttribute('aria-hidden', 'true');
+                }
+            });
+            
+            const isExpanded = btn.getAttribute('aria-expanded') === 'true';
+            const overlayId = btn.getAttribute('aria-controls');
+            const overlay = document.getElementById(overlayId);
+            
+            btn.setAttribute('aria-expanded', !isExpanded);
+            overlay.classList.toggle('d-none');
+            overlay.setAttribute('aria-hidden', isExpanded);
+        });
+    });
+
+    // Setup delete button handlers
+    document.querySelectorAll('.delete-image-btn').forEach(btn => {
+        if (btn.dataset.initialized) return;
+        btn.dataset.initialized = 'true';
+        
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
+                const imageId = btn.dataset.imageId;
+                deleteImage(imageId);
+            }
+        });
+    });
+}
+
+function deleteImage(imageId) {
+    fetch(`{% url 'image-delete' image_id=0 %}`.replace('0', imageId), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{% csrf_token %}',
+        },
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+    })
+    .then(data => {
+        // Remove the image from the grid
+        const imageElement = document.getElementById(`photo-${imageId}`);
+        imageElement.remove();
+        masonryInstance.layout();
+        
+        // Show success message
+        showToast('Image successfully deleted');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error deleting image', 'error');
+    });
+}
+
+// Utility function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function handleScroll() {
+    if (!hasMore || loading) return;
+    
+    if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 1000) {
+        console.log('loading more!!!!!');
+        loadPhotos(currentPage + 1);
+    }
+}
 </script>
 {% endblock %}

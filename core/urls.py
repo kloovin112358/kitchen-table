@@ -5,7 +5,8 @@ from django.urls import reverse_lazy
 
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),
-    path('gallery/', Gallery.as_view(), name="gallery"),
+    path('gallery/', GalleryTemplateView.as_view(), name='gallery'),
+    path('gallery/ajax/', GalleryAjaxView.as_view(), name='gallery-ajax'),
     path('login/', LoginView.as_view(), name="log-in"),
     path('sign-up/', SignUpView.as_view(), name='sign-up'),
     path('account/', MyAccount, name="my-account"),
@@ -17,5 +18,6 @@ urlpatterns = [
     path('post/<int:pk>/delete/', PostEntryDeleteView.as_view(), name='post-delete'),
     path('media-upload/', MediaUpload, name='media-upload'),
     path('ajax/upload/', ImageUploadView.as_view(), name='image-upload'),
-    path('ajax/create-dummy-post-instance/', CreateDummyPostInstance, name="create-dummy-post-instance")
+    path('ajax/create-dummy-post-instance/', CreateDummyPostInstance, name="create-dummy-post-instance"),
+    path('gallery/image/<int:image_id>/delete/', ImageDeleteView.as_view(), name='image-delete'),
 ]

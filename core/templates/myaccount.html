@@ -96,7 +96,7 @@
           <h1 class="{% if post_drafts %}mt-4{% else %}mt-2{% endif %} h2 fw-bold mb-3">Live Posts</h1>
           <div class="list-group">
             {% for post in posts %}
-              <a href="{% url 'post-edit' post.id %}" class="list-group-item list-group-item-action d-flex justify-content-between flex-wrap">
+              <a href="{% url 'post-view' post.id %}" class="list-group-item list-group-item-action d-flex justify-content-between flex-wrap">
                 <div>
                   {{post.title}}
                 </div>

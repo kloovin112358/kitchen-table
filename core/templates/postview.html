@@ -32,7 +32,7 @@ img:not(.profilePhoto) {
                     </div>
                     {% endif %}
                     <div class="text-muted {% if post.author.profile_photo %}ms-3{% endif %}">
-                        {{post.author.get_full_name}} · {{post.created_at.date}}
+                        {{post.author.get_full_name}} · {{post.created_at.date}} {% if post.created_at.date != post.last_updated.date %}· (Updated {{post.last_updated.date}}){% endif %}
                     </div>
                 </div>
                 <form method="POST">
@@ -42,9 +42,6 @@ img:not(.profilePhoto) {
                     </button>
                 </form>
             </div>
-            {% if post.created_at.date != post.last_updated.date %}
-                <p class="fst-italic text-muted mt-2">Last updated: {{post.last_updated|localtime}}</p>
-            {% endif %}
         </div>
         <hr />
         <div class="py-4">
