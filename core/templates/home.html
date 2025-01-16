@@ -2,7 +2,6 @@
 
 {% block title %}Home{% endblock %}
 {% block content %}
-<script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
 <div class="container pb-5 mt-3">
     <form method="GET">
     {% if posts %}
@@ -149,33 +148,4 @@
     {% endif %}
 </form>
 </div>
-<script>
-
-// Get the photo grid and masonry items
-const grid = document.querySelector("#photoGrid");
-const items = grid.querySelectorAll(".thumbnailImage");
-
-// Initialize Masonry
-const masonryInstance = new Masonry(grid, {
-itemSelector: ".thumbnailImage",
-columnWidth: ".thumbnailImage",
-percentPosition: true
-});
-
-// Function to layout Masonry after all images are loaded
-function layoutMasonryAfterImagesLoaded() {
-const images = grid.querySelectorAll("img");
-
-// Check if all images are loaded
-if (areAllImagesLoaded(images)) {
-    masonryInstance.layout();
-} else {
-    // If images are not loaded, retry after a short delay
-    setTimeout(layoutMasonryAfterImagesLoaded, 100);
-}
-}
-
-// Ensure Masonry layout is triggered once images are loaded
-layoutMasonryAfterImagesLoaded();
-</script>
 {% endblock %}

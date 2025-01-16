@@ -3,20 +3,83 @@
 {% block title %}Gallery{% endblock %}
 {% block content %}
 <style>
+/* Always apply base connect style for light mode */
+.noUi-connect {
+    background: #6ea8fe!important;
+}
+
+/* Override connect color in dark mode */
+[data-bs-theme="dark"] .noUi-connect {
+    background: #094298!important;
+}
+
+/* Dark mode styles */
+[data-bs-theme="dark"] .noUi-handle {
+    background: #212529!important;
+    border: 1px solid #495057!important;
+    box-shadow: none!important;
+    border-radius: 3px!important;
+}
+
+[data-bs-theme="dark"] .noUi-handle:before,
+[data-bs-theme="dark"] .noUi-handle:after {
+    background: #6c757d!important;
+}
+
+[data-bs-theme="dark"] .noUi-tooltip {
+    background-color: #212529!important;
+    border: 1px solid #495057!important;
+    color: #f8f9fa!important;
+    font-size: 0.875rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+}
+
+[data-bs-theme="dark"] .noUi-target {
+    background: #343a40!important;
+    border: 1px solid #495057!important;
+    box-shadow: none!important;
+}
+
+[data-bs-theme="dark"] .noUi-handle:hover {
+    background: #343a40!important;
+}
+
+[data-bs-theme="dark"] .noUi-active {
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.1)!important;
+}
+
+[data-bs-theme="dark"] .noUi-handle:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(110, 168, 254, .5)!important;
+}
+
+/* Other existing styles */
 .masonry-item {
     width: 100%;
 }
 
 @media (min-width: 768px) {
     .masonry-item {
-    width: 50%;
+        width: 50%;
     }
 }
 
 @media (min-width: 1200px) {
     .masonry-item {
-    width: 33.333333%;
+        width: 33.333333%;
     }
+}
+
+.fslight {
+    z-index: 9999;
+}
+
+.masonry-overlay {
+    background: rgba(0, 0, 0, 0.8); 
+    border-radius: 15px;
+    height:100%;
+    width:100%;
 }
 </style>
 <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
@@ -26,15 +89,12 @@
   href="{% static 'nouislider.min.css' %}"
 />
 <style>
-  .noUi-connect {
-    background: #6ea8fe!important;
-}
-.masonry-overlay {
-  background: rgba(0, 0, 0, 0.8); 
-  border-radius: 15px;
-  height:100%;
-  width:100%;
-}
+  .masonry-overlay {
+    background: rgba(0, 0, 0, 0.8); 
+    border-radius: 15px;
+    height:100%;
+    width:100%;
+  }
 </style>
 <script src="{% static 'nouislider.min.js' %}"></script>
 <script src="{% static 'fslightbox.js' %}"></script>
@@ -104,6 +164,13 @@
     <div id="photoGrid">
         <!-- Photos will be loaded here via JavaScript -->
     </div>
+    <div id="no-results" class="text-center py-5 d-none">
+        <p class="text-muted mb-0">
+            <i class="bi bi-image"></i>
+            No results found
+        </p>
+        <small class="text-muted">Please try adjusting your filters.</small>
+    </div>
     <div id="loading-spinner" class="text-center d-none my-4">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
@@ -115,6 +182,20 @@ let currentPage = 1;
 let loading = false;
 let hasMore = true;
 let masonryInstance;
+let lightboxSources = [];
+let fsLightbox = null;
+
+// Add this function to manage the lightbox instance
+function initializeLightbox() {
+    if (fsLightbox) {
+        fsLightbox.props.sources = [];
+    }
+    fsLightbox = new FsLightbox();
+    fsLightbox.props.sources = lightboxSources;
+    
+    // Optional: Add any custom lightbox settings here
+    fsLightbox.props.loadOnlyCurrentSource = true; // For better performance
+}
 
 // Utility function to convert date to timestamp
 function toTimestamp(dateString) {
@@ -137,6 +218,111 @@ const minDate = "{{ min_date|date:'Y-m-d' }}";
 const maxDate = "{{ max_date|date:'Y-m-d' }}";
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Set initial filter values from URL parameters
+    const initialFilters = {
+        search: new URLSearchParams(window.location.search).get('search') || '',
+        favorites_only: new URLSearchParams(window.location.search).get('favorites_only') === 'true',
+        sort_by: new URLSearchParams(window.location.search).get('sort_by') || 'latest',
+        users: (new URLSearchParams(window.location.search).get('users') || '').split(',').filter(Boolean),
+        start_date: new URLSearchParams(window.location.search).get('start_date') || '',
+        end_date: new URLSearchParams(window.location.search).get('end_date') || ''
+    };
+
+    // Apply initial filters to form elements
+    document.getElementById('searchQuery').value = initialFilters.search;
+    document.getElementById('flexSwitchCheckDefault').checked = initialFilters.favorites_only;
+    document.getElementById('sortBy').value = initialFilters.sort_by;
+    
+    // Set initial users in multi-select
+    if (initialFilters.users.length > 0) {
+        const usersSelect = document.getElementById('usersFilter');
+        initialFilters.users.forEach(userId => {
+            if (userId) {  // Only process non-empty user IDs
+                const option = usersSelect.querySelector(`option[value="${userId}"]`);
+                if (option) option.selected = true;
+            }
+        });
+    }
+
+    // Set initial date range if provided
+    if (initialFilters.start_date && initialFilters.end_date) {
+        const slider = document.getElementById('slider');
+        if (slider && slider.noUiSlider) {
+            slider.noUiSlider.set([
+                toTimestamp(initialFilters.start_date),
+                toTimestamp(initialFilters.end_date)
+            ]);
+        }
+    }
+
+    // Function to update URL with current filters
+    function updateURL() {
+        const params = new URLSearchParams();
+        
+        const search = document.getElementById('searchQuery').value;
+        const favorites = document.getElementById('flexSwitchCheckDefault').checked;
+        const sortBy = document.getElementById('sortBy').value;
+        const selectedUsers = Array.from(document.getElementById('usersFilter').selectedOptions)
+            .map(option => option.value);
+        
+        // Get current and default date values
+        const slider = document.getElementById('slider');
+        const dateRange = slider.noUiSlider.get();
+        const startTimestamp = parseInt(dateRange[0]);
+        const endTimestamp = parseInt(dateRange[1]);
+        
+        // Only add dates if they're different from defaults
+        const defaultStartTimestamp = toTimestamp(minDate);
+        const defaultEndTimestamp = toTimestamp(maxDate);
+        
+        if (search) params.set('search', search);
+        if (favorites) params.set('favorites_only', 'true');
+        if (sortBy !== 'latest') params.set('sort_by', sortBy);
+        if (selectedUsers.length) params.set('users', selectedUsers.join(','));
+        
+        // Only add date parameters if they differ from defaults
+        if (startTimestamp !== defaultStartTimestamp) {
+            params.set('start_date', formatDate(startTimestamp));
+        }
+        if (endTimestamp !== defaultEndTimestamp) {
+            params.set('end_date', formatDate(endTimestamp));
+        }
+
+        // Update URL without reloading the page
+        const newURL = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+        window.history.pushState({}, '', newURL);
+    }
+
+    // Add URL update to filter handlers
+    document.getElementById('applyFilters').addEventListener('click', (e) => {
+        e.preventDefault();
+        currentPage = 1;
+        hasMore = true;
+        const photoGrid = document.getElementById('photoGrid');
+        photoGrid.innerHTML = '';
+        document.getElementById('loading-spinner').classList.add('d-none');
+        updateURL();
+        resetScrollListener();
+        loadPhotos(1);
+    });
+
+    // Also update URL for instant-apply filters
+    document.querySelectorAll('#flexSwitchCheckDefault, #sortBy').forEach(element => {
+        element.addEventListener('change', () => {
+            currentPage = 1;
+            hasMore = true;
+            const photoGrid = document.getElementById('photoGrid');
+            photoGrid.innerHTML = '';
+            document.getElementById('loading-spinner').classList.add('d-none');
+            updateURL();
+            resetScrollListener();
+            loadPhotos(1);
+        });
+    });
+
+    // Initial load with any URL parameters
+    loadPhotos(1);
+
     // Initialize Masonry
     const grid = document.querySelector("#photoGrid");
     masonryInstance = new Masonry(grid, {
@@ -146,10 +332,6 @@ document.addEventListener("DOMContentLoaded", () => {
         transitionDuration: 0
     });
 
-    // Set up initial load and scroll handler
-    loadPhotos(1);
-    window.addEventListener('scroll', handleScroll);
-
     // Set up instant-apply filter handlers
     document.querySelectorAll('#flexSwitchCheckDefault, #sortBy').forEach(element => {
         element.addEventListener('change', () => {
@@ -158,19 +340,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const photoGrid = document.getElementById('photoGrid');
             photoGrid.innerHTML = '';
             document.getElementById('loading-spinner').classList.add('d-none');
+            resetScrollListener();
             loadPhotos(1);
         });
-    });
-
-    // Set up filter buttons
-    document.getElementById('applyFilters').addEventListener('click', (e) => {
-        e.preventDefault();
-        currentPage = 1;
-        hasMore = true;
-        const photoGrid = document.getElementById('photoGrid');
-        photoGrid.innerHTML = '';
-        document.getElementById('loading-spinner').classList.add('d-none');
-        loadPhotos(1);
     });
 
     document.getElementById('clearFilters').addEventListener('click', (e) => {
@@ -184,6 +356,17 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('searchQuery').value = '';
         // Reset the users select
         document.getElementById('usersFilter').selectedIndex = -1;
+        // Reset favorites switch
+        document.getElementById('flexSwitchCheckDefault').checked = false;
+        // Reset sort to default
+        document.getElementById('sortBy').value = 'latest';
+        
+        // Reset lightbox
+        lightboxSources = [];
+        initializeLightbox();
+        
+        // Clear URL parameters
+        window.history.pushState({}, '', window.location.pathname);
         
         // Reload the photos
         currentPage = 1;
@@ -191,20 +374,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const photoGrid = document.getElementById('photoGrid');
         photoGrid.innerHTML = '';
         document.getElementById('loading-spinner').classList.add('d-none');
+        resetScrollListener();
         loadPhotos(1);
     });
 
     // Set up form handlers
-    document.querySelectorAll('form select:not(#sortBy), form input:not(#flexSwitchCheckDefault)').forEach(element => {
-        element.addEventListener('change', () => {
-            currentPage = 1;
-            hasMore = true;
-            const photoGrid = document.getElementById('photoGrid');
-            photoGrid.innerHTML = '';
-            document.getElementById('loading-spinner').classList.add('d-none');
-            loadPhotos(1);
-        });
-    });
+    // document.querySelectorAll('form select:not(#sortBy), form input:not(#flexSwitchCheckDefault)').forEach(element => {
+    //     element.addEventListener('change', () => {
+    //         currentPage = 1;
+    //         hasMore = true;
+    //         const photoGrid = document.getElementById('photoGrid');
+    //         photoGrid.innerHTML = '';
+    //         document.getElementById('loading-spinner').classList.add('d-none');
+    //         loadPhotos(1);
+    //     });
+    // });
 
     // Set up overlay handlers
     setupOverlayHandlers();
@@ -233,15 +417,17 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         // Add slider event listener
-        slider.noUiSlider.on('change', () => {
-            currentPage = 1;
-            hasMore = true;
-            const photoGrid = document.getElementById('photoGrid');
-            photoGrid.innerHTML = '';
-            document.getElementById('loading-spinner').classList.add('d-none');
-            loadPhotos(1);
-        });
+        // slider.noUiSlider.on('change', () => {
+        //     currentPage = 1;
+        //     hasMore = true;
+        //     const photoGrid = document.getElementById('photoGrid');
+        //     photoGrid.innerHTML = '';
+        //     document.getElementById('loading-spinner').classList.add('d-none');
+        //     loadPhotos(1);
+        // });
     }
+
+    initializeLightbox();
 });
 
 function loadPhotos(page) {
@@ -288,9 +474,45 @@ function loadPhotos(page) {
         .then(response => response.json())
         .then(data => {
             const photoGrid = document.getElementById('photoGrid');
+            const noResults = document.getElementById('no-results');
             
+            // Show no results message if it's the first page and no photos
+            if (page === 1 && (!data.photos || data.photos.length === 0)) {
+                photoGrid.innerHTML = '';
+                photoGrid.classList.add('d-none'); // Hide the grid
+                noResults.classList.remove('d-none');
+                loading = false;
+                hasMore = false; // Ensure infinite scroll stops
+                document.getElementById('loading-spinner').classList.add('d-none');
+                return;
+            }
+
+            // If we got photos, make sure no-results is hidden and grid is visible
+            noResults.classList.add('d-none');
+            photoGrid.classList.remove('d-none');
+            
+            // Reset lightbox sources only on first page
+            if (page === 1) {
+                lightboxSources = [];
+                initializeLightbox();
+            }
+            
+            // Store the starting index for this batch
+            const startIndex = lightboxSources.length;
+            
+            // Add all new images to lightboxSources
             data.photos.forEach(photo => {
-                const photoHtml = createPhotoElement(photo);
+                lightboxSources.push(photo.image_url);
+            });
+            
+            // Update lightbox with new sources
+            if (fsLightbox) {
+                fsLightbox.props.sources = lightboxSources;
+            }
+            
+            // Now create the HTML elements with correct indices
+            data.photos.forEach((photo, i) => {
+                const photoHtml = createPhotoElement(photo, startIndex + i);
                 photoGrid.insertAdjacentHTML('beforeend', photoHtml);
             });
             
@@ -324,14 +546,27 @@ function loadPhotos(page) {
         .catch(error => {
             console.error('Error loading photos:', error);
             loading = false;
+            hasMore = false;
             document.getElementById('loading-spinner').classList.add('d-none');
+            
+            // Show no results on error for first page only
+            if (page === 1) {
+                const photoGrid = document.getElementById('photoGrid');
+                const noResults = document.getElementById('no-results');
+                photoGrid.innerHTML = '';
+                photoGrid.classList.add('d-none'); // Hide the grid
+                noResults.classList.remove('d-none');
+                noResults.querySelector('p').textContent = 'Error loading images';
+                noResults.querySelector('small').textContent = 'Please try again later';
+            }
         });
 }
 
-function createPhotoElement(photo) {
-    const currentUserId = "{{ request.user.id }}"; // Add this at top of template, outside any functions
+function createPhotoElement(photo, index) {
+    const currentUserId = "{{ request.user.id }}";
     
-    return `        <div class="masonry-item" id="photo-${photo.id}">
+    return `
+        <div class="masonry-item" id="photo-${photo.id}">
             <article class="image-card position-relative m-1 m-lg-2">
                 <img 
                     src="${photo.image_url}"
@@ -339,6 +574,7 @@ function createPhotoElement(photo) {
                     style="border-radius:15px;width:100%;height:100%;"
                     class="masonry-item-image"
                     loading="lazy"
+                    data-lightbox-index="${index}"
                 >
                 <button 
                     class="btn btn-light btn-sm position-absolute top-0 end-0 m-2 toggle-overlay-btn rounded-corners opacity-50"
@@ -354,9 +590,13 @@ function createPhotoElement(photo) {
                     style="z-index:1000;"
                     aria-expanded="false"
                     aria-label="Toggle fullscreen"
+                    data-lightbox-index="${index}"
                 >
                     <i class="bi bi-fullscreen"></i>
                 </button>
+                ${photo.is_favorite ? `<div class="position-absolute bottom-0 end-0 m-2 mt-5 permanent-star-indicator">
+                    <span class="bi bi-star-fill text-warning"></span>
+                </div>` : ''}
                 
                 <div 
                     id="overlay-${photo.id}"
@@ -380,10 +620,11 @@ function createPhotoElement(photo) {
                             </a>
 
                             <button 
-                                class="btn btn-outline-info btn-sm"
+                                class="btn ${photo.is_favorite ? 'btn-info text-white' : 'btn-outline-info'} btn-sm favorite-btn"
+                                data-image-id="${photo.id}"
                                 aria-label="Favorite image"
                             >
-                                <i class="bi bi-star"></i> Favorite
+                                <i class="bi ${photo.is_favorite ? 'bi-star-fill' : 'bi-star'}"></i> Favorite
                             </button>
                             
                             ${photo.related_post_entry ? `
@@ -468,14 +709,56 @@ function setupOverlayHandlers() {
             }
         });
     });
+
+    // Setup fullscreen button handlers
+    document.querySelectorAll('.toggle-fullscreen-btn').forEach(btn => {
+        if (btn.dataset.initialized) return;
+        btn.dataset.initialized = 'true';
+        
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const index = parseInt(btn.dataset.lightboxIndex);
+            
+            // Ensure lightbox is initialized
+            if (!fsLightbox) {
+                initializeLightbox();
+            }
+            
+            try {
+                fsLightbox.open(index);
+            } catch (error) {
+                console.error('Error opening lightbox:', error);
+                // Reinitialize and try again
+                initializeLightbox();
+                fsLightbox.open(index);
+            }
+        });
+    });
+
+    // Setup favorite button handlers
+    document.querySelectorAll('.favorite-btn').forEach(btn => {
+        if (btn.dataset.initialized) return;
+        btn.dataset.initialized = 'true';
+        
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const imageId = btn.dataset.imageId;
+            toggleFavorite(imageId, btn);
+        });
+    });
 }
 
 function deleteImage(imageId) {
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    
     fetch(`{% url 'image-delete' image_id=0 %}`.replace('0', imageId), {
         method: 'POST',
-        headers: {
-            'X-CSRFToken': '{% csrf_token %}',
-        },
+        body: formData
     })
     .then(response => {
         if (!response.ok) throw new Error('Network response was not ok');
@@ -493,6 +776,80 @@ function deleteImage(imageId) {
     .catch(error => {
         console.error('Error:', error);
         showToast('Error deleting image', 'error');
+    });
+}
+
+function toggleFavorite(imageId, button) {
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    
+    fetch(`{% url 'image-favorite' image_id=0 %}`.replace('0', imageId), {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+    })
+    .then(data => {
+        // Update button appearance
+        const isFavorite = data.is_favorite;
+        button.classList.toggle('btn-outline-info', !isFavorite);
+        button.classList.toggle('btn-info', isFavorite);
+        button.classList.toggle('text-white', isFavorite);
+        
+        // Update icon in button
+        const icon = button.querySelector('i');
+        icon.classList.toggle('bi-star', !isFavorite);
+        icon.classList.toggle('bi-star-fill', isFavorite);
+        
+        // Update both star indicators on the image
+        const imageCard = button.closest('.masonry-item');
+        const imageArticle = imageCard.querySelector('.image-card');
+        const overlay = imageCard.querySelector('.masonry-overlay');
+        
+        // Handle the overlay star indicator
+        let starIndicator = imageCard.querySelector('.favorite-indicator');
+        if (isFavorite) {
+            if (!starIndicator) {
+                starIndicator = document.createElement('div');
+                starIndicator.className = 'position-absolute bottom-0 end-0 m-2 mt-5 favorite-indicator';
+                starIndicator.innerHTML = '<span class="bi bi-star-fill text-warning"></span>';
+                // Insert before the overlay to ensure proper z-index stacking
+                if (overlay) {
+                    overlay.parentNode.insertBefore(starIndicator, overlay);
+                } else {
+                    imageArticle.appendChild(starIndicator);
+                }
+            }
+        } else if (starIndicator) {
+            starIndicator.remove();
+        }
+
+        // Handle the permanent star indicator
+        let permanentStar = imageCard.querySelector('.permanent-star-indicator');
+        if (isFavorite) {
+            if (!permanentStar) {
+                permanentStar = document.createElement('div');
+                permanentStar.className = 'position-absolute bottom-0 end-0 m-2 mt-5 permanent-star-indicator';
+                permanentStar.innerHTML = '<span class="bi bi-star-fill text-warning"></span>';
+                // Insert before the overlay to ensure proper z-index stacking
+                if (overlay) {
+                    overlay.parentNode.insertBefore(permanentStar, overlay);
+                } else {
+                    imageArticle.appendChild(permanentStar);
+                }
+            }
+        } else if (permanentStar) {
+            permanentStar.remove();
+        }
+        
+        // Show success message
+        showToast(isFavorite ? 'Added to favorites' : 'Removed from favorites');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error updating favorite status', 'error');
     });
 }
 
@@ -519,6 +876,14 @@ function handleScroll() {
         console.log('loading more!!!!!');
         loadPhotos(currentPage + 1);
     }
+}
+
+// Add this function to manage the scroll listener
+function resetScrollListener() {
+    // Remove existing listener first to avoid duplicates
+    window.removeEventListener('scroll', handleScroll);
+    // Add it back
+    window.addEventListener('scroll', handleScroll);
 }
 </script>
 {% endblock %}

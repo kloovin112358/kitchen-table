@@ -92,7 +92,7 @@
                   <a class="nav-link" href="{% url 'post-create' %}"><i class="bi bi-plus-lg"></i> Create Post</a>
                 </li>
                 <li class="d-lg-none nav-item">
-                  <a class="nav-link" href="{% url 'media-upload' %}"><i class="bi bi-cloud-arrow-up"></i> Upload Media</a>
+                  <a class="nav-link" href="{% url 'media-upload' %}"><i class="bi bi-cloud-arrow-up"></i> Upload to Gallery</a>
                 </li>
                 <li class="d-lg-none nav-item">
                   <a class="nav-link" href="{% url 'my-account' %}"><i class="bi bi-person-circle"></i> My Account</a>
@@ -118,7 +118,7 @@
               </button>
               <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="{% url 'post-create' %}">Create Post</a></li>
-                <li><a class="dropdown-item" href="{% url 'media-upload' %}">Upload Media</a></li>
+                <li><a class="dropdown-item" href="{% url 'media-upload' %}">Upload to Gallery</a></li>
               </ul>
             </div>
               {% if request.user.profile_photo %}

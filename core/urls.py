@@ -20,4 +20,5 @@ urlpatterns = [
     path('ajax/upload/', ImageUploadView.as_view(), name='image-upload'),
     path('ajax/create-dummy-post-instance/', CreateDummyPostInstance, name="create-dummy-post-instance"),
     path('gallery/image/<int:image_id>/delete/', ImageDeleteView.as_view(), name='image-delete'),
+    path('gallery/image/<int:image_id>/favorite/', ImageFavoriteView.as_view(), name='image-favorite'),
 ]

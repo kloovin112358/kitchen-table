@@ -108,6 +108,19 @@
           </div>
         </section>
         {% endif %}
+        {% if recent_images %}
+        <section>
+          <h1 class="{% if post_drafts or posts %}mt-4{% else %}mt-2{% endif %} h2 fw-bold mb-3">Recent Gallery Uploads</h1>
+          <div class="d-flex flex-wrap gap-2">
+            {% for image in recent_images %}
+              <div>
+                <img src="{{ image.uploaded_image.url }}" alt="{{ image.uploaded_image.name }}" class="img-fluid rounded" style="max-height: 150px;">
+              </div>
+            {% endfor %}
+          </div>
+          <a href="{% url 'gallery' %}?users={{request.user.id}}" class="btn btn-link text-decoration-none ps-0 mt-3">View all your gallery uploads</a>
+        </section>
+        {% endif %}
       </div>
     </div>
 </div>

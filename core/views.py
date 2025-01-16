@@ -23,6 +23,9 @@ from django.views import View
 from django.db.models import Prefetch, Q, OuterRef, Exists, Min, Max
 from urllib.parse import urlparse
 from django.core.paginator import Paginator
+from django.utils import timezone
+from datetime import datetime
+from django.db.models.functions import TruncDate
 
 class HomeView(LoginRequiredMixin, ListView):
     model = PostEntry  # Replace with your model
@@ -135,12 +138,19 @@ def MyAccount(request):
                 return redirect("my-account")
             else:
                 messages.error(request, "There was an error updating your profile photo. Please try again.")
+    
+    # Get 3 most recent images
+    recent_images = ImageUpload.objects.filter(
+        uploaded_by=user,
+        related_post_entry__isnull=True
+    ).order_by('-uploaded_at')[:5]
 
     return render(request, "myaccount.html", {
         "form": form, 
         "post_drafts": PostEntry.objects.filter(author=user, status="Draft").order_by("-last_updated"),
         "posts": PostEntry.objects.filter(author=user, status="Live"),
         "active_user_timezone": get_current_timezone_name(),
+        "recent_images": recent_images,
         "timezones": {
             "US/Pacific (Los Angeles)": "America/Los_Angeles",
             "US/Mountain (Denver)": "America/Denver",
@@ -237,26 +247,38 @@ class GalleryAjaxView(LoginRequiredMixin, View):
                 Q(caption__icontains=search) | Q(tags__name__icontains=search)
             ).distinct()
 
-        if sort_by == 'latest':
-            queryset = queryset.order_by('-uploaded_at')
-        elif sort_by == 'oldest':
-            queryset = queryset.order_by('uploaded_at')
-
         # Add date range filtering
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
         if start_date and end_date:
-            queryset = queryset.filter(
-                uploaded_at__range=[start_date, end_date]
-            )
+            try:
+                # Parse the ISO dates from the request
+                start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                print(start_date)
+                print(end_date)
+                # Annotate with date only (removes time component)
+                queryset = queryset.annotate(
+                    upload_date=TruncDate('uploaded_at')
+                ).filter(
+                    upload_date__gte=start_date.date(),
+                    upload_date__lte=end_date.date()
+                )
+            except ValueError as e:
+                print(f"Date parsing error: {e}")
 
-        queryset = queryset.annotate(is_favorite=Exists(favorite_status))
+        if sort_by == 'latest':
+            queryset = queryset.order_by('-uploaded_at')
+        elif sort_by == 'oldest':
+            queryset = queryset.order_by('uploaded_at')
 
         # Add users filter
         users = request.GET.get('users')
         if users:
             user_ids = [int(uid) for uid in users.split(',')]
             queryset = queryset.filter(uploaded_by_id__in=user_ids)
+
+        queryset = queryset.annotate(is_favorite=Exists(favorite_status))
 
         # Paginate the results
         paginator = Paginator(queryset, 10)
@@ -444,3 +466,31 @@ class ImageDeleteView(LoginRequiredMixin, View):
             return JsonResponse({'status': 'success'})
         except ImageUpload.DoesNotExist:
             return JsonResponse({'error': 'Image not found or permission denied'}, status=404)
+
+class ImageFavoriteView(LoginRequiredMixin, View):
+    def post(self, request, image_id):
+        try:
+            image = ImageUpload.objects.get(id=image_id)
+            favorite = Favorite.objects.filter(
+                user=request.user,
+                image_upload=image
+            ).first()
+
+            if favorite:
+                favorite.delete()
+                is_favorite = False
+            else:
+                Favorite.objects.create(
+                    user=request.user,
+                    image_upload=image
+                )
+                is_favorite = True
+
+            return JsonResponse({
+                'status': 'success',
+                'is_favorite': is_favorite
+            })
+        except ImageUpload.DoesNotExist:
+            return JsonResponse({
+                'error': 'Image not found'
+            }, status=404)
