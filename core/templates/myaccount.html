@@ -5,10 +5,10 @@
 <div class="container pb-5 mt-3">
     <section>
       <h1 class="visually-hidden">My Account - {{request.user.get_full_name}}</h1>
-      <p class="display-4 fw-bold mb-0">{{request.user.get_full_name}} <span class="visually-hidden">settings</span></p>
+      <p class="display-1 fw-bold mb-0 mt-3">{{request.user.get_full_name}} <span class="visually-hidden">settings</span></p>
       <p>{{request.user.email}}</p>
       {% if post_drafts or posts %}
-        <hr class="d-none d-lg-block"/>
+        <hr class="d-none d-lg-block mt-4 pb-3"/>
       {% endif %}
     </section>
     <div class="row">
@@ -69,56 +69,111 @@
           <button onclick="document.getElementById('logout-form').submit(); return false;" class="btn outline-button"><i class="bi bi-door-closed"></i> Sign Out</button>
         </div>
       </section>
-      <div class="col-lg-10 px-lg-5 mt-4 mt-lg-0">
+      <div class="col-lg-10 px-lg-5 mt-4 mt-lg-0 pb-5">
+        {% if favorite_posts %}
+        <section>
+            <h1 class="mt-2 h2 fw-bold mb-4 display-4">
+              <!-- <i class="bi bi-star-fill"></i>  -->
+              Favorites
+            </h1>
+            <div class="list-group">
+                {% for favorite in favorite_posts %}
+                    <a href="{% url 'post-view' favorite.post_entry.id %}" class="list-group-item list-group-item-action d-flex justify-content-between flex-wrap">
+                        <div>
+                            <strong>{{favorite.post_entry.title}}</strong> 
+                            by 
+                            {% if favorite.post_entry.author.id == request.user.id %}
+                                <span class="fst-italic">You</span>
+                            {% else %}
+                                {{favorite.post_entry.author.get_full_name}}
+                            {% endif %}
+                        </div>
+                        <div>
+                            <small class="text-muted">Posted: {{favorite.post_entry.created_at|date }}</small>
+                        </div>
+                    </a>
+                {% endfor %}
+                {% if remaining_favorite_posts > 0 %}
+                    <a href="{% url 'home' %}?favorites_only=on" class="list-group-item list-group-item-action favorite-text">
+                       + {{remaining_favorite_posts}} more favorite post{% if remaining_favorite_posts > 1 %}s{% endif %} (view)
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if favorite_images %}
+            <!-- <h1 class="{% if favorite_posts %}mt-4{% else %}mt-2{% endif %} h2 fw-bold mb-3">Favorite Images</h1> -->
+            <div class="d-flex flex-wrap gap-2 mt-4">
+                {% for favorite in favorite_images %}
+                    <div>
+                        <img src="{{ favorite.image_upload.uploaded_image.url }}" alt="{{ favorite.image_upload.uploaded_image.name }}" class="img-fluid rounded" style="max-height: 150px;">
+                    </div>
+                {% endfor %}
+                {% if remaining_favorite_images > 0 %}
+                    <div class="card" style="height:150px;">
+                        <div class="card-body h-100 d-flex justify-content-center align-items-center">
+                            <a class="btn btn-link text-decoration-none pt-0" href="{% url 'gallery' %}?favorites_only=true">View {{remaining_favorite_images}} more</a>
+                        </div>
+                    </div>    
+                {% endif %}
+            </div>
+        </section>
+        {% endif %}
+        <hr class="d-none d-lg-block mt-5"/>
+        <section class="mt-4">
+          <h1 class="mt-2 h2 fw-bold mb-4 display-4">Your Contributions</h1>
         {% if post_drafts %}
-        <section>
-          <h1 class="mt-2 h2 fw-bold mb-3">Post Drafts</h1>
-          <div class="list-group">
-            {% for draft in post_drafts %}
-              <a href="{% url 'post-edit' draft.id %}" class="list-group-item list-group-item-action d-flex justify-content-between flex-wrap">
-                <div>
-                  {% if draft.title %}
-                    {{draft.title}}
-                  {% else %}
-                    <i>Untitled</i>
-                  {% endif %}
-                </div>
-                <div>
-                  <small class="text-muted">Last updated: {{draft.last_updated|localtime }}</small>
-                </div>
-              </a>
-            {% endfor %}
-          </div>
-        </section>
+            <h2 class="{% if favorite_posts or favorite_images %}mt-4{% else %}mt-2{% endif %} h3 fw-bold mb-3">Post Drafts</h2>
+            <div class="list-group">
+                {% for draft in post_drafts %}
+                    <a href="{% url 'post-edit' draft.id %}" class="list-group-item list-group-item-action d-flex justify-content-between flex-wrap">
+                        <div>
+                            {% if draft.title %}
+                                {{draft.title}}
+                            {% else %}
+                                <i>Untitled</i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <small class="text-muted">Last updated: {{draft.last_updated|localtime }}</small>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
         {% endif %}
+
         {% if posts %}
-        <section>
-          <h1 class="{% if post_drafts %}mt-4{% else %}mt-2{% endif %} h2 fw-bold mb-3">Live Posts</h1>
-          <div class="list-group">
-            {% for post in posts %}
-              <a href="{% url 'post-view' post.id %}" class="list-group-item list-group-item-action d-flex justify-content-between flex-wrap">
-                <div>
-                  {{post.title}}
-                </div>
-                <div>
-                  <small class="text-muted">Last updated: {{post.last_updated|localtime }}</small>
-                </div>
-              </a>
-            {% endfor %}
-          </div>
-        </section>
+            <h2 class="{% if post_drafts %}mt-4{% else %}mt-2{% endif %} h3 fw-bold mb-3">Live Posts</h2>
+            <div class="list-group">
+                {% for post in posts %}
+                    <a href="{% url 'post-view' post.id %}" class="list-group-item list-group-item-action d-flex justify-content-between flex-wrap">
+                        <div>
+                            {{post.title}}
+                        </div>
+                        <div>
+                            <small class="text-muted">Last updated: {{post.last_updated|localtime }}</small>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
         {% endif %}
+
         {% if recent_images %}
-        <section>
-          <h1 class="{% if post_drafts or posts %}mt-4{% else %}mt-2{% endif %} h2 fw-bold mb-3">Recent Gallery Uploads</h1>
-          <div class="d-flex flex-wrap gap-2">
-            {% for image in recent_images %}
-              <div>
-                <img src="{{ image.uploaded_image.url }}" alt="{{ image.uploaded_image.name }}" class="img-fluid rounded" style="max-height: 150px;">
-              </div>
-            {% endfor %}
-          </div>
-          <a href="{% url 'gallery' %}?users={{request.user.id}}" class="btn btn-link text-decoration-none ps-0 mt-3">View all your gallery uploads</a>
+            <h2 class="{% if post_drafts or posts %}mt-4{% else %}mt-2{% endif %} h3 fw-bold mb-3">Gallery Uploads</h2>
+            <div class="d-flex flex-wrap gap-2">
+                {% for image in recent_images %}
+                    <div>
+                        <img src="{{ image.uploaded_image.url }}" alt="{{ image.uploaded_image.name }}" class="img-fluid rounded" style="max-height: 150px;">
+                    </div>
+                {% endfor %}
+                {% if remaining_image_count > 0 %}
+                    <div class="card" style="height:150px;">
+                        <div class="card-body h-100 d-flex justify-content-center align-items-center">
+                            <a class="btn btn-link text-decoration-none pt-0" href="{% url 'gallery' %}?users={{request.user.id}}">View {{remaining_image_count}} more</a>
+                        </div>
+                    </div>    
+                {% endif %}
+            </div>
         </section>
         {% endif %}
       </div>

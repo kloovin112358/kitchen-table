@@ -218,6 +218,7 @@ const minDate = "{{ min_date|date:'Y-m-d' }}";
 const maxDate = "{{ max_date|date:'Y-m-d' }}";
 
 document.addEventListener("DOMContentLoaded", () => {
+    resetScrollListener();
     // Set initial filter values from URL parameters
     const initialFilters = {
         search: new URLSearchParams(window.location.search).get('search') || '',
@@ -531,7 +532,6 @@ function loadPhotos(page) {
             return Promise.all(imageLoadPromises).then(() => {
                 masonryInstance.reloadItems();
                 masonryInstance.layout();
-                
                 hasMore = data.has_next;
                 currentPage = page;
                 loading = false;
@@ -539,7 +539,6 @@ function loadPhotos(page) {
 
                 if (!hasMore) {
                     window.removeEventListener('scroll', handleScroll);
-                    console.log('Removed scroll listener - no more pages');
                 }
             });
         })
@@ -873,7 +872,6 @@ function handleScroll() {
     if (!hasMore || loading) return;
     
     if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 1000) {
-        console.log('loading more!!!!!');
         loadPhotos(currentPage + 1);
     }
 }

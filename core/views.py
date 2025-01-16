@@ -139,18 +139,54 @@ def MyAccount(request):
             else:
                 messages.error(request, "There was an error updating your profile photo. Please try again.")
     
-    # Get 3 most recent images
+    # Get favorite posts
+    total_favorite_posts = Favorite.objects.filter(
+        user=user,
+        post_entry__isnull=False
+    ).count()
+    
+    favorite_posts = Favorite.objects.filter(
+        user=user,
+        post_entry__isnull=False
+    ).select_related('post_entry')[:3]
+    
+    remaining_favorite_posts = max(0, total_favorite_posts - 3)
+
+    # Get favorite images
+    total_favorite_images = Favorite.objects.filter(
+        user=user,
+        image_upload__isnull=False
+    ).count()
+    
+    favorite_images = Favorite.objects.filter(
+        user=user,
+        image_upload__isnull=False
+    ).select_related('image_upload')[:3]
+    
+    remaining_favorite_images = max(0, total_favorite_images - 3)
+
+    # Get gallery uploads (existing code)
+    total_images = ImageUpload.objects.filter(
+        uploaded_by=user,
+    ).count()
+    
     recent_images = ImageUpload.objects.filter(
         uploaded_by=user,
-        related_post_entry__isnull=True
-    ).order_by('-uploaded_at')[:5]
+    ).order_by('-uploaded_at')[:3]
+
+    remaining_images = max(0, total_images - 3)
 
     return render(request, "myaccount.html", {
         "form": form, 
         "post_drafts": PostEntry.objects.filter(author=user, status="Draft").order_by("-last_updated"),
         "posts": PostEntry.objects.filter(author=user, status="Live"),
+        "favorite_posts": favorite_posts,
+        "remaining_favorite_posts": remaining_favorite_posts,
+        "favorite_images": favorite_images,
+        "remaining_favorite_images": remaining_favorite_images,
         "active_user_timezone": get_current_timezone_name(),
         "recent_images": recent_images,
+        "remaining_image_count": remaining_images,
         "timezones": {
             "US/Pacific (Los Angeles)": "America/Los_Angeles",
             "US/Mountain (Denver)": "America/Denver",
