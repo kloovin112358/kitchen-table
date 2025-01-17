@@ -70,7 +70,7 @@
         </div>
       </section>
       <div class="col-lg-10 px-lg-5 mt-4 mt-lg-0 pb-5">
-        {% if favorite_posts %}
+        {% if favorite_posts or favorite_images %}
         <section>
             <h1 class="mt-2 h2 fw-bold mb-4 display-4">
               <!-- <i class="bi bi-star-fill"></i>  -->
@@ -99,11 +99,11 @@
                     </a>
                 {% endif %}
             </div>
-        {% endif %}
+        
 
         {% if favorite_images %}
             <!-- <h1 class="{% if favorite_posts %}mt-4{% else %}mt-2{% endif %} h2 fw-bold mb-3">Favorite Images</h1> -->
-            <div class="d-flex flex-wrap gap-2 mt-4">
+            <div class="d-flex flex-wrap gap-2 {% if favorite_posts %}mt-4{% else %}mt-2{% endif %}">
                 {% for favorite in favorite_images %}
                     <div>
                         <img src="{{ favorite.image_upload.uploaded_image.url }}" alt="{{ favorite.image_upload.uploaded_image.name }}" class="img-fluid rounded" style="max-height: 150px;">
@@ -117,11 +117,15 @@
                     </div>    
                 {% endif %}
             </div>
+            {% endif %}
         </section>
-        {% endif %}
+        
         <hr class="d-none d-lg-block mt-5"/>
-        <section class="mt-4">
-          <h1 class="mt-2 h2 fw-bold mb-4 display-4">Your Contributions</h1>
+        {% endif %}
+        <section class="{% if favorite_posts or favorite_images %}mt-5{% endif %}">
+          {% if post_drafts or posts or recent_images %}
+            <h1 class="mt-2 h2 fw-bold mb-4 display-4">Your Contributions</h1>
+          {% endif %}
         {% if post_drafts %}
             <h2 class="{% if favorite_posts or favorite_images %}mt-4{% else %}mt-2{% endif %} h3 fw-bold mb-3">Post Drafts</h2>
             <div class="list-group">

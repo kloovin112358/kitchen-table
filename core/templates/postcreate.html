@@ -150,18 +150,81 @@
         </div>
     </form>
 </div>
+<style>
+    /* Ensure modal appears above TinyMCE */
+    .modal {
+        z-index: 100000 !important;
+    }
+    .modal-backdrop {
+        z-index: 99999 !important;
+    }
+</style>
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:999999">
     <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="10000">
-      <div class="toast-header">
-        <strong class="me-auto">{{sitename}}</strong>
-        <small class="text-body-secondary">just now</small>
-        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-      </div>
-      <div class="toast-body">
-        Looks like you haven't saved this post yet. Please click "cancel" on the Insert/Edit Image dialog, then click "Save as Draft," and try again.
-      </div>
+        <div class="toast-header">
+            <strong class="me-auto">{{sitename}}</strong>
+            <small class="text-body-secondary">just now</small>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            <!-- Toast message will be set dynamically -->
+        </div>
     </div>
-  </div>
+</div>
+<div class="modal fade" id="imageDetailsModal" tabindex="-1" aria-labelledby="imageDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageDetailsModalLabel">Image Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <img id="imagePreview" class="img-fluid rounded" style="max-height: 200px;" alt="Image preview"/>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Date</label>
+                    <input 
+                        type="date" 
+                        class="form-control" 
+                        id="imageDate"
+                    >
+                    <div class="form-text">
+                        This should be the date the photo was taken. If we cannot automatically pull the date, it will default to today.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Caption</label>
+                    <textarea 
+                        class="form-control" 
+                        id="imageCaption" 
+                        rows="2" 
+                        maxlength="200" 
+                        placeholder="Add a caption for this image"
+                    ></textarea>
+                    <div class="form-text">
+                        <span id="captionLength">0</span>/200 characters
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label">Tags (separated by commas)</label>
+                    <input 
+                        type="text" 
+                        class="form-control" 
+                        id="imageTags"
+                        placeholder="Ex: beach, rocks, ocean"
+                    >
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="uploadImageBtn">Upload Image</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+
 <script>
 let postEntryInstID
 //{% if form.instance.pk %}
@@ -185,8 +248,27 @@ document.addEventListener('DOMContentLoaded', function () {
             html: true  // Allow HTML rendering in the content
         });
     });
+    
     const toastElList = document.querySelectorAll('.toast')
     const toastList = [...toastElList].map(toastEl => new bootstrap.Toast(toastEl))
+
+    // Check for open_image_picker query parameter
+    // TODO - add in this functionality to improve user experience
+    // const urlParams = new URLSearchParams(window.location.search);
+    // if (urlParams.get('open_image_picker') === 'true') {
+    //     // Remove the query parameter from URL without refreshing
+    //     window.history.replaceState({}, '', window.location.pathname);
+    //     // Find and click the TinyMCE image button
+    //     console.log("BEEP BEEP")
+    //     setTimeout(() => {
+    //         const imageButton = document.querySelector('button[title="Insert/edit image"]');
+    //         console.log(imageButton)
+    //         if (imageButton) {
+    //             console.log("imageButton found")
+    //             imageButton.click();
+    //         }
+    //     }, 3000); // Small delay to ensure TinyMCE is fully initialized
+    // }
 });
 
 const form = document.getElementById('postForm');
@@ -213,84 +295,137 @@ if (isFormDirty) {
 });
 
 function customFilePicker(callback, value, meta) {
-    // Create a Promise to handle the dummy post creation
-    const ensurePostInstance = async () => {
-        if (!postEntryInstID) {
-            try {
-                const response = await fetch('{% url "create-dummy-post-instance" %}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}',
-                    },
-                });
-                const data = await response.json();
-                
-                if (data.entry_id) {
-                    postEntryInstID = data.entry_id;
-                    const postForm = document.getElementById("postForm");
-                    if (postForm) {
-                        postForm.action = "{% url 'post-edit' '0' %}".replace('0', postEntryInstID);
-                        // Add hidden input for preset_post_id
-                        const hiddenInput = document.createElement('input');
-                        hiddenInput.type = 'hidden';
-                        hiddenInput.name = 'preset_post_id';
-                        hiddenInput.value = postEntryInstID;
-                        postForm.appendChild(hiddenInput);
-                    }
-                    return true;
-                } else {
-                    throw new Error('No entry ID received');
-                }
-            } catch (error) {
-                console.error('Error creating instance:', error);
-                alert('Error: Unable to prepare for image upload. Please save your post as draft first.');
-                return false;
-            }
+    // If no post instance exists, trigger save as draft first
+    if (!postEntryInstID) {
+        // Find and click the "Save as Draft" button
+        const draftButton = document.querySelector('button[name="save_as_draft"]');
+        if (draftButton) {
+            // Change form action to include query parameter
+            const form = document.getElementById('postForm');
+            form.action = "{% url 'post-create' %}?success_message=false";
+            draftButton.click();
+            // Show a toast notification
+            const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+            document.querySelector('.toast-body').textContent = 'Saving as draft before uploading image...';
+            toast.show();
+            return; // Exit the function - user will need to try upload again after save
         }
-        return true;
+        return;
+    }
+    
+    let input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    
+    let currentFile = null;
+    let imageCallback = callback;
+    
+    const modal = new bootstrap.Modal(document.getElementById('imageDetailsModal'));
+    const imagePreview = document.getElementById('imagePreview');
+    const imageDate = document.getElementById('imageDate');
+    const imageCaption = document.getElementById('imageCaption');
+    const imageTags = document.getElementById('imageTags');
+    const uploadBtn = document.getElementById('uploadImageBtn');
+    
+    // Handle caption length counter
+    imageCaption.addEventListener('input', () => {
+        document.getElementById('captionLength').textContent = imageCaption.value.length;
+    });
+
+    input.onchange = function() {
+        currentFile = this.files[0];
+        if (!currentFile) return;
+        
+        // Set today's date as default
+        const today = new Date().toISOString().split('T')[0];
+        imageDate.value = today;
+        
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            imagePreview.src = e.target.result;
+            
+            // Try to extract EXIF data
+            const img = new Image();
+            img.onload = function() {
+                EXIF.getData(this, function() {
+                    let dateTaken = EXIF.getTag(this, "DateTimeOriginal");
+                    if (dateTaken) {
+                        // Get just the date part from EXIF data
+                        const [date] = dateTaken.split(' ');
+                        const [year, month, day] = date.split(':');
+                        imageDate.value = `${year}-${month}-${day}`;
+                    }
+                });
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(currentFile);
+        
+        // Show modal
+        modal.show();
     };
-
-    // Main file picker logic
-    const handleFilePicker = async () => {
-        const ready = await ensurePostInstance();
-        if (!ready) return;
-
-        let input = document.createElement('input');
-        input.setAttribute('type', 'file');
-        input.setAttribute('accept', 'image/*');
-
-        input.onchange = function () {
-            let file = this.files[0];
-            let formData = new FormData();
-            formData.append('file', file);
+    
+    // Handle upload button click
+    uploadBtn.onclick = async function() {
+        if (!currentFile) return;
+        
+        const formData = new FormData();
+        formData.append('file', currentFile);
+        if (postEntryInstID) {
             formData.append('post_entry_id', postEntryInstID);
-
-            fetch('{% url "image-upload" %}', {
+        }
+        formData.append('date_taken', imageDate.value);
+        formData.append('caption', imageCaption.value);
+        formData.append('tags', imageTags.value);
+        
+        try {
+            const response = await fetch('{% url "image-upload" %}', {
                 method: 'POST',
                 body: formData,
                 headers: {
                     'X-CSRFToken': '{{ csrf_token }}',
                 },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.location) {
-                    callback(data.location);
-                } else if (data.error) {
-                    alert(data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error uploading file:', error);
-                alert('Error uploading image.');
             });
-        };
-
-        input.click();
+            
+            const data = await response.json();
+            if (data.location) {
+                modal.hide();
+                imageCallback(data.location);
+                
+                // If we got a new post ID back, update the form
+                if (data.post_entry_id && !postEntryInstID) {
+                    postEntryInstID = data.post_entry_id;
+                    const postForm = document.getElementById("postForm");
+                    if (postForm) {
+                        postForm.action = "{% url 'post-edit' '0' %}".replace('0', postEntryInstID);
+                        // Add hidden input for preset_post_id if it doesn't exist
+                        let hiddenInput = postForm.querySelector('input[name="preset_post_id"]');
+                        if (!hiddenInput) {
+                            hiddenInput = document.createElement('input');
+                            hiddenInput.type = 'hidden';
+                            hiddenInput.name = 'preset_post_id';
+                            postForm.appendChild(hiddenInput);
+                        }
+                        hiddenInput.value = postEntryInstID;
+                    }
+                }
+                
+                // Reset form
+                imageDate.value = '';
+                imageCaption.value = '';
+                imageTags.value = '';
+                document.getElementById('captionLength').textContent = '0';
+            } else if (data.error) {
+                alert(data.error);
+            }
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            alert('Error uploading image.');
+        }
     };
-
-    handleFilePicker();
+    
+    input.click();
 }
 </script>
 {% endblock %}

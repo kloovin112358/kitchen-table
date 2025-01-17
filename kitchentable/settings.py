@@ -133,16 +133,6 @@ TINYMCE_DEFAULT_CONFIG = {
     "file_picker_types": "file image media",
     "file_picker_callback": "function (callback, value, meta) { customFilePicker(callback, value, meta); }",
     "image_dimensions": False,
-    # "image_class_list": """[{"title": "img-fluid", "value": "img-fluid"}]""",
-    # "setup": """function (editor) {
-    #     editor.on('OpenWindow', function (e) {
-    #         const dialog = e.window;
-    #         console.log(e)
-    #         if (dialog.title === 'Insert/Edit Image') {
-    #             console.log('Insert/Edit Image dialog opened.');
-    #         }
-    #     });
-    # }"""
 }
 
 TAGGIT_CASE_INSENSITIVE = True

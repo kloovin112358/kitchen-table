@@ -26,6 +26,7 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from datetime import datetime
 from django.db.models.functions import TruncDate
+import re
 
 class HomeView(LoginRequiredMixin, ListView):
     model = PostEntry  # Replace with your model
@@ -220,11 +221,11 @@ def MyAccount(request):
     # Get gallery uploads (existing code)
     total_images = ImageUpload.objects.filter(
         uploaded_by=user,
-    ).count()
+    ).filter(Q(related_post_entry__isnull=True) | Q(related_post_entry__status="Live")).count()
     
     recent_images = ImageUpload.objects.filter(
         uploaded_by=user,
-    ).order_by('-uploaded_at')[:3]
+    ).filter(Q(related_post_entry__isnull=True) | Q(related_post_entry__status="Live")).order_by('-uploaded_at')[:3]      
 
     remaining_images = max(0, total_images - 3)
 
@@ -394,10 +395,36 @@ class PostEntryBaseView:
     def form_valid(self, form):
         form.instance.author = self.request.user  # Set the logged-in user as the author
         form.instance.last_updated = now()
+        
+        response = super().form_valid(form)
+        
+        # After saving, check for orphaned images
+        if form.instance.id:  # Only if we have a saved instance
+            # Get all related images
+            related_images = ImageUpload.objects.filter(related_post_entry=form.instance)
+            
+            # Extract all image URLs from post body
+            post_body = form.instance.post_body or ""
+            # Look for src attributes after media/
+            image_urls = []
+            for match in re.finditer(r'src="[^"]*?/media/([^"]+)"', post_body):
+                image_urls.append(match.group(1))
+            
+            # Check each related image
+            for image in related_images:
+                # Get the part of the URL after /media/
+                image_url = str(image.uploaded_image).replace('\\', '/')  # Handle Windows paths
+                
+                # If image URL not found in post body, delete it
+                if image_url not in image_urls:
+                    print(f"Deleting image {image.id} because it's not in the post body")
+                    image.delete()
+        
         if "save_as_draft" in self.request.POST:
             # Set status to "Draft" when Save as Draft button is clicked
             form.instance.status = "Draft"
-            messages.success(self.request, "Your changes have been saved. Feel free to continue editing.")
+            if self.request.GET.get('success_message', 'true').lower() != 'false':
+                messages.success(self.request, "Your changes have been saved. Feel free to continue editing.")
         elif "submit" in self.request.POST:
             # Set status to "Live" when Submit button is clicked
             if form.instance.id and form.instance.status == "Live":
@@ -415,6 +442,8 @@ class PostEntryBaseView:
 
     def get_success_url(self):
         if self.object.status == "Draft":
+            if self.request.GET.get('success_message', 'true').lower() == 'false':
+                return f"{reverse_lazy('post-edit', kwargs={'pk': self.object.pk})}?open_image_picker=true"
             return reverse_lazy('post-edit', kwargs={'pk': self.object.pk})
         else:
             return reverse_lazy('home')
@@ -434,9 +463,6 @@ class PostEntryUpdateView(LoginRequiredMixin, PostEntryBaseView, UpdateView):
     def get(self, request, *args, **kwargs):
         # Call parent get() first to set self.object
         response = super().get(request, *args, **kwargs)
-        # Print post body of the instance being updated
-        print(f"Post body for post {self.object.id}:")
-        print(self.object.post_body)
         return response
 
     def get_queryset(self):
@@ -477,46 +503,58 @@ class PostEntryDeleteView(LoginRequiredMixin, DeleteView):
         return self.post(request, *args, **kwargs)
 
 class ImageUploadView(LoginRequiredMixin, View):
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
-
     def post(self, request, *args, **kwargs):
         uploaded_file = request.FILES.get('file')
         post_entry_id = request.POST.get('post_entry_id')
+        date_taken = request.POST.get('date_taken')
+        caption = request.POST.get('caption')
+        tags = request.POST.get('tags')
 
-        # Validate file type
         if not uploaded_file:
             return JsonResponse({'error': 'No file provided.'}, status=400)
         
-        mime_type, _ = mimetypes.guess_type(uploaded_file.name)
-        if not mime_type or not mime_type.startswith('image/'):
-            return JsonResponse({'error': 'Only image files are allowed.'}, status=400)
-
-        # Validate dimensions or size if necessary
         try:
-            get_image_dimensions(uploaded_file)
-        except ValidationError:
-            return JsonResponse({'error': 'Invalid image file.'}, status=400)
-        
-        related_post_entry = None
-        if post_entry_id:
+            # Get or create post entry
+            if post_entry_id:
+                try:
+                    related_post_entry = PostEntry.objects.get(pk=post_entry_id)
+                except PostEntry.DoesNotExist:
+                    return JsonResponse({'error': 'Invalid post entry ID'}, status=400)
+            else:
+                # Create a new draft post
+                related_post_entry = PostEntry.objects.create(
+                    author=request.user,
+                )
+            
+            # Parse date
             try:
-                related_post_entry = PostEntry.objects.get(pk=post_entry_id)
-            except PostEntry.DoesNotExist:
-                return JsonResponse({'error': 'Invalid PostEntry ID.'}, status=400)
-        else:
-            return JsonResponse({'error': 'Please save the post before adding images.'}, status=400)
+                date_taken = timezone.datetime.strptime(date_taken, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                date_taken = timezone.now().date()
 
-        # Save to the model
-        image_upload = ImageUpload(
-            uploaded_by=request.user,
-            uploaded_image=uploaded_file,
-            related_post_entry=related_post_entry
-        )
-        image_upload.save()
+            # Create image upload
+            image_upload = ImageUpload(
+                uploaded_by=request.user,
+                uploaded_image=uploaded_file,
+                related_post_entry=related_post_entry,
+                date_taken=date_taken,
+                caption=caption
+            )
+            image_upload.save()
 
-        # Return the image URL to TinyMCE
-        return JsonResponse({'location': image_upload.uploaded_image.url})
+            # Add tags
+            if tags:
+                tag_list = [tag.strip() for tag in tags.split(',') if tag.strip()]
+                for tag in tag_list:
+                    image_upload.tags.add(tag)
+                    
+            return JsonResponse({
+                'location': image_upload.uploaded_image.url,
+                'post_entry_id': related_post_entry.id
+            })
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
 def ViewPost(request, pk):
