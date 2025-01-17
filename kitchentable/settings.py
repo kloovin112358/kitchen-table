@@ -66,7 +66,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'tinymce',
     "taggit",
-    'core'
+    'core',
+    'storages',
 ]
 
 MIDDLEWARE = [
