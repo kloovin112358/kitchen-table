@@ -109,7 +109,7 @@
         <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
           <div class="accordion-body">
             <!-- TODO - make this label accessible to sceen readers -->
-            <label id="date-range-label" class="form-label">Filter by photo upload date</label>
+            <label id="date-range-label" class="form-label">Filter by photo date</label>
             <div class="mt-5 px-4 px-lg-5 mb-3 mb-lg-0">
               <div id="slider"></div>
             </div>
@@ -606,7 +606,7 @@ function createPhotoElement(photo, index) {
                 >
                     <div class="masonry-overlay-content text-white p-3 d-flex flex-column justify-content-center align-items-center h-100">
                         ${photo.caption ? `<p class="fst-italic">"${photo.caption}"</p>` : ''}
-                        <p class="small">Uploaded by ${photo.uploaded_by} on ${photo.uploaded_at}</p>
+                        <p class="small">${photo.date} by ${photo.uploaded_by}</p>
                         
                         <div class="d-flex gap-2 justify-content-center mb-3 flex-wrap">
                             <a 

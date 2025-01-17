@@ -126,19 +126,30 @@ def MediaUpload(request):
         uploaded_files = request.FILES.getlist('images')
         captions = request.POST.getlist('captions')
         image_tags = request.POST.getlist('image_tags')
+        dates_taken = request.POST.getlist('dates_taken')
         common_tags = request.POST.get('common_tags', '')
         
         try:
             count = 0
-            # Process common tags
             common_tag_list = [tag.strip() for tag in common_tags.split(',') if tag.strip()]
             
             for i, image in enumerate(uploaded_files):
+                # Parse date taken
+                date_taken = None
+                if i < len(dates_taken) and dates_taken[i]:
+                    try:
+                        date_taken = timezone.datetime.strptime(dates_taken[i], '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        date_taken = timezone.now().date()
+                else:
+                    date_taken = timezone.now().date()
+                
                 # Create image
                 upload = ImageUpload.objects.create(
                     uploaded_by=request.user,
                     uploaded_image=image,
-                    caption=captions[i] if i < len(captions) else ''
+                    caption=captions[i] if i < len(captions) else '',
+                    date_taken=date_taken
                 )
                 
                 # Add common tags
@@ -281,20 +292,16 @@ class GalleryTemplateView(LoginRequiredMixin, TemplateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        filtered_queryset = ImageUpload.objects.filter(
-            Q(related_post_entry__isnull=True) | 
-            Q(related_post_entry__status="Live")
+        context['users'] = CustomUser.objects.all()
+        
+        # Get min and max dates from date_taken instead of uploaded_at
+        date_range = ImageUpload.objects.aggregate(
+            min_date=Min('date_taken'),
+            max_date=Max('date_taken')
         )
         
-        # Calculate the min and max dates
-        date_range = filtered_queryset.aggregate(
-            min_date=Min('uploaded_at'),
-            max_date=Max('uploaded_at')
-        )
-
         context['min_date'] = date_range['min_date']
         context['max_date'] = date_range['max_date']
-        context['users'] = CustomUser.objects.all()
         return context
 
 class GalleryAjaxView(LoginRequiredMixin, View):
@@ -310,44 +317,39 @@ class GalleryAjaxView(LoginRequiredMixin, View):
             image_upload=OuterRef('pk')
         )
 
-        # Handle query parameters
+        # Get query parameters
+        page = int(request.GET.get('page', 1))
+        search = request.GET.get('search', '').strip()
         favorites_only = request.GET.get('favorites_only', 'false').lower() == 'on'
         sort_by = request.GET.get('sort_by', 'latest')
-        search = request.GET.get('search', '').strip()
-        page = int(request.GET.get('page', 1))
-        
-        if favorites_only:
-            queryset = queryset.filter(Exists(favorite_status))
-        
-        if search:
-            queryset = queryset.filter(
-                Q(caption__icontains=search) | Q(tags__name__icontains=search)
-            ).distinct()
-
-        # Add date range filtering
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
+
+        # Apply favorites filter
+        if favorites_only:
+            queryset = queryset.filter(Exists(favorite_status))
+
+        # Apply date range filter if provided
         if start_date and end_date:
             try:
-                # Parse the ISO dates from the request
-                start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                print(start_date)
-                print(end_date)
-                # Annotate with date only (removes time component)
-                queryset = queryset.annotate(
-                    upload_date=TruncDate('uploaded_at')
-                ).filter(
-                    upload_date__gte=start_date.date(),
-                    upload_date__lte=end_date.date()
-                )
-            except ValueError as e:
-                print(f"Date parsing error: {e}")
+                start_date = timezone.datetime.strptime(start_date, '%Y-%m-%d').date()
+                end_date = timezone.datetime.strptime(end_date, '%Y-%m-%d').date()
+                queryset = queryset.filter(date_taken__range=[start_date, end_date])
+            except ValueError:
+                pass
 
-        if sort_by == 'latest':
-            queryset = queryset.order_by('-uploaded_at')
-        elif sort_by == 'oldest':
-            queryset = queryset.order_by('uploaded_at')
+        # Apply search filter
+        if search:
+            queryset = queryset.filter(
+                Q(caption__icontains=search) |
+                Q(tags__name__icontains=search)
+            ).distinct()
+
+        # Apply sorting
+        if sort_by == 'oldest':
+            queryset = queryset.order_by('date_taken')
+        else:  # latest
+            queryset = queryset.order_by('-date_taken')
 
         # Add users filter
         users = request.GET.get('users')
@@ -370,7 +372,7 @@ class GalleryAjaxView(LoginRequiredMixin, View):
                 'caption': photo.caption,
                 'uploaded_by': photo.uploaded_by.get_full_name(),
                 'uploaded_by_id': photo.uploaded_by.id,
-                'uploaded_at': photo.uploaded_at.strftime('%b %d, %Y'),
+                'date': photo.date_taken.strftime('%b %d, %Y'),
                 'is_favorite': photo.is_favorite,
                 'tags': [{'name': tag.name} for tag in photo.tags.all()],
                 'related_post_entry': {

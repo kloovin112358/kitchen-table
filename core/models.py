@@ -98,6 +98,7 @@ class ImageUpload(models.Model):
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     uploaded_image = models.ImageField()
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    date_taken = models.DateField()
     caption = models.CharField(blank=True, null=True, max_length=200)
     tags = TaggableManager(blank=True)
 

@@ -3,7 +3,7 @@
 {% block title %}Upload Images{% endblock %}
 {% block content %}
 <div class="container pb-5 mt-3">
-    <h1 class="display-5 fw-bold mb-4">Upload Images</h1>
+    <h1 class="display-5 fw-bold mb-4">Upload Images to Gallery</h1>
     
     <form id="uploadForm" method="post" enctype="multipart/form-data">
         {% csrf_token %}
@@ -125,6 +125,8 @@
 }
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+
 <script>
 function showToast(message, type = 'error') {
     const toast = document.getElementById('errorToast');
@@ -184,20 +186,19 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const formData = new FormData();
         const commonTags = document.getElementById('commonTags').value;
-        
-        // Add common tags
         formData.append('common_tags', commonTags);
         
-        // Add each file with its caption and tags
         const previews = document.querySelectorAll('.preview-card');
         previews.forEach((preview, index) => {
             const file = Array.from(files)[index];
             const caption = preview.querySelector('.image-caption').value;
             const imageTags = preview.querySelector('.image-tags').value;
+            const dateTaken = preview.querySelector('.image-date').value;
             
             formData.append(`images`, file);
             formData.append(`captions`, caption);
             formData.append(`image_tags`, imageTags);
+            formData.append(`dates_taken`, dateTaken);
         });
         
         formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
@@ -270,6 +271,31 @@ document.addEventListener('DOMContentLoaded', function() {
         reader.onload = function(e) {
             const previewCard = document.createElement('div');
             previewCard.className = 'col-12 col-md-6 col-lg-4';
+            
+            // Get today's date in YYYY-MM-DD format
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Try to extract EXIF data
+            const img = new Image();
+            img.onload = function() {
+                EXIF.getData(this, function() {
+                    let dateTaken = EXIF.getTag(this, "DateTimeOriginal");
+                    if (dateTaken) {
+                        // Get just the date part from EXIF data
+                        const [date] = dateTaken.split(' ');
+                        const [year, month, day] = date.split(':');
+                        const formattedDate = `${year}-${month}-${day}`;
+                        
+                        // Set the date input value after the card is added to DOM
+                        const dateInput = previewCard.querySelector('.image-date');
+                        if (dateInput) {
+                            dateInput.value = formattedDate;
+                        }
+                    }
+                });
+            };
+            img.src = e.target.result;
+
             previewCard.innerHTML = `
                 <div class="preview-card card">
                     <div class="position-relative image-container">
@@ -279,6 +305,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         </button>
                     </div>
                     <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Date</label>
+                            <input 
+                                type="date" 
+                                class="form-control image-date" 
+                                value="${today}"
+                            >
+                            <div class="form-text">
+                                This should be the date the photo was taken. If we cannot automatically pull the date, it will default to today.
+                            </div>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">Caption</label>
                             <textarea 
@@ -326,6 +363,14 @@ document.addEventListener('DOMContentLoaded', function() {
             previewArea.appendChild(previewCard);
         };
         reader.readAsDataURL(file);
+    }
+
+    // Helper function to format EXIF date
+    function formatExifDate(exifDate) {
+        // EXIF date format: "YYYY:MM:DD HH:MM:SS"
+        const [date, time] = exifDate.split(' ');
+        const [year, month, day] = date.split(':');
+        return `${month}/${day}/${year}`;
     }
 
     // Add page leave warning
