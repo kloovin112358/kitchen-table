@@ -6,6 +6,9 @@ from django.utils import timezone
 from django.conf import settings
 from tinymce.models import HTMLField
 from taggit.managers import TaggableManager
+from django.core.files.storage import default_storage
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 
 class CustomUserManager(BaseUserManager):
     """
@@ -104,6 +107,14 @@ class ImageUpload(models.Model):
 
     class Meta:
         ordering = ['uploaded_at']
+
+@receiver(pre_delete, sender=ImageUpload)
+def delete_image_from_s3(sender, instance, **kwargs):
+    if instance.uploaded_image:
+        # Delete the file from S3
+        storage = default_storage
+        if storage.exists(instance.uploaded_image.name):
+            storage.delete(instance.uploaded_image.name)
 
 
 class Favorite(models.Model):

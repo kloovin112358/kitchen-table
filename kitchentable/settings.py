@@ -45,6 +45,15 @@ else:
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
         }
     }
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_QUERYSTRING_AUTH = True
+    AWS_S3_ADDRESSING_STYLE = 'virtual'
+    MEDIA_URL = f'https://{os.getenv("AWS_S3_CUSTOM_DOMAIN")}/media/'
+    MEDIA_ROOT = "media/"
 
 LOGIN_URL = '/login/'
 
