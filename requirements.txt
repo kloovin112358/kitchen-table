@@ -5,7 +5,9 @@ Django==5.1.4
 django-storages==1.14.4
 django-taggit==6.1.0
 django-tinymce==4.1.0
+gunicorn==23.0.0
 jmespath==1.0.1
+packaging==24.2
 pillow==11.0.0
 psycopg2-binary==2.9.10
 python-dateutil==2.9.0.post0
