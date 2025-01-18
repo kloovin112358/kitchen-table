@@ -95,9 +95,6 @@ db.sqlite3
 .terraform.lock.hcl
 **/.terraform/*
 
-static/*
 media/*
-/static/
 /media/
-static/
 media/
