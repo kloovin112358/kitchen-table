@@ -53,9 +53,6 @@ if os.getenv("DEBUG") == "true":
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-    STATIC_URL = '/static/'
-    STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
     MEDIA_URL = '/media/'
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 else:
@@ -88,6 +85,10 @@ else:
     AWS_S3_ADDRESSING_STYLE = 'virtual'
     MEDIA_URL = f'https://{os.getenv("AWS_S3_CUSTOM_DOMAIN")}/media/'
     MEDIA_ROOT = "media/"
+
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 LOGIN_URL = '/login/'
 
