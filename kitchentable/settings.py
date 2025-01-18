@@ -1,8 +1,42 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {message}',
+            'style': '{',
+            'datefmt': '%m-%d-%Y %H:%M:%S',  # Date format
+        },
+    },
+    'handlers': {
+        'stdout': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'stream': sys.stdout,  # Standard output for info/debug
+            'formatter': 'verbose',
+        },
+        'stderr': {
+            'level': 'ERROR',
+            'class': 'logging.StreamHandler',
+            'stream': sys.stderr,  # Standard error for warnings and errors
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['stdout', 'stderr'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 AUTH_USER_MODEL = 'core.CustomUser'
 
