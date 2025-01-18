@@ -1,7 +1,7 @@
 version: "3.9"  # or the version you prefer
 
 services:
-  trash-transit:
+  kitchen-table:
     build:
       context: .
       dockerfile: Dockerfile  # Ensure this matches your actual Dockerfile name
