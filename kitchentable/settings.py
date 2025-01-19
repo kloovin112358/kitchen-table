@@ -58,6 +58,7 @@ if os.getenv("DEBUG") == "true":
 else:
     DEBUG = False
     ALLOWED_HOSTS = ["*"]
+    CSRF_TRUSTED_ORIGINS = ["https://lauers.club"]
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
