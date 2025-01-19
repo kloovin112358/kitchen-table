@@ -104,10 +104,10 @@
                 {% endif %}
               {% else %}
                 <li class="d-lg-none nav-item">
-                  <a class="nav-link" href="">Log In</a>
+                  <a class="nav-link" href="{% url 'log-in' %}">Log In</a>
                 </li>
                 <li class="d-lg-none nav-item">
-                  <a class="nav-link" href="">Sign Up</a>
+                  <a class="nav-link" href="{% url 'sign-up' %}">Sign Up</a>
                 </li>
               {% endif %}
             </ul>
