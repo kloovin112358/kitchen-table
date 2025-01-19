@@ -25,8 +25,7 @@ RUN python manage.py collectstatic --noinput
 RUN python manage.py test
 
 # Set the command to run our web service using Gunicorn, binding it to 0.0.0.0 and the PORT environment variable
-#CMD gunicorn --bind 0.0.0.0:"${PORT}" --certfile=/etc/letsencrypt/archive/trashtransit.click/fullchain1.pem --keyfile=/etc/letsencrypt/archive/trashtransit.click/privkey1.pem worsttransit.wsgi:application
-CMD gunicorn --bind 0.0.0.0:"${PORT}" kitchentable.wsgi:application
+CMD gunicorn --bind 0.0.0.0:"${PORT}" --certfile=/etc/letsencrypt/archive/lauers.club/fullchain1.pem --keyfile=/etc/letsencrypt/archive/lauers.club/privkey1.pem kitchentable.wsgi:application
 
 # Inform Docker that the container listens on the specified network port at runtime
 EXPOSE ${PORT}
